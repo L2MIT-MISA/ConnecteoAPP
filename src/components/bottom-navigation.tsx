@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { cloneElement, type ReactElement } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-type Tab = 'saved' | 'messages' | 'network' | 'settings';
+type Tab = 'saved' | 'messages' | 'network' | 'settings' | 'stats' | 'map';
 
 type BottomNavigationProps = {
   activeTab: Tab;
@@ -18,13 +18,26 @@ const COLORS = {
 export function BottomNavigation({ activeTab }: BottomNavigationProps) {
   return (
     <View style={styles.bottomBar}>
-      <NavigationButton icon={<Ionicons name="bookmark-outline" size={22} />} />
+      <NavigationButton 
+      active={activeTab === 'map'}
+      icon={<Ionicons name="bookmark-outline" size={22} />} 
+      onPress={() => router.navigate('/map')}
+      />
       <NavigationButton
         active={activeTab === 'messages'}
         icon={<Ionicons name="chatbubble-outline" size={22} />}
         onPress={() => router.navigate('/message')}
       />
-      <NavigationButton icon={<Feather name="wifi" size={22} />} />
+      <NavigationButton 
+      active={activeTab === 'network'}
+      icon={<Feather name="wifi" size={22} />} 
+      onPress={() =>router.navigate('/network')}
+      />
+      <NavigationButton
+        active={activeTab === 'stats'}
+        icon={<Ionicons name="stats-chart-outline" size={22}/>}
+        onPress={() => router.navigate('/stats')}
+      />
       <NavigationButton
         active={activeTab === 'settings'}
         icon={<Ionicons name="settings-outline" size={22} />}
