@@ -1,6 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { BottomNavigation } from '../components/bottom-navigation';
 
 const COLORS = {
@@ -14,23 +13,6 @@ const COLORS = {
   border: '#E3DED5',
 };
 
-type StatCardProps = {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-};
-
-function StatCard({ icon, label, value }: StatCardProps) {
-  return (
-    <View style={styles.statCard}>
-      <View style={styles.statIcon}>{icon}</View>
-      <View>
-        <Text style={styles.statValue}>{value}</Text>
-        <Text style={styles.statLabel}>{label}</Text>
-      </View>
-    </View>
-  );
-}
 
 export default function StatsScreen() {
   return (
@@ -39,8 +21,6 @@ export default function StatsScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Map</Text>
         </View>
-
-
         <BottomNavigation activeTab="map" />
       </SafeAreaView>
     </View>
