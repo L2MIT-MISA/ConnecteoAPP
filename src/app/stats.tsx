@@ -1,9 +1,16 @@
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { BottomNavigation } from '../components/bottom-navigation';
+import { createClient } from '@supabase/supabase-js';
+import { useEffect } from 'react';
+
+const supabaseUrl = 'http://192.168.11.65:8000';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg5MjA5NzE4LCJleHAiOjIxMDQ1Njk3MTh9.8TqQreyifHorvHUkk6qdWM_GixbdXcmnvjcSt4UBkeI';
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const COLORS = {
   dark: '#1B3A2B',
@@ -38,10 +45,21 @@ const DEFAULT_ELECTRICITY_DATA = [
   { label: 'Groupe electrogene', value: 11 },
 ];
 
-// zones et lieux par defaut
 //format de donnees attendus
-const DEFAULT_AREAS = ['Tout', 'Commune', 'Disctrict', 'Fokontany'];
-const DEFAULT_PLACES = ['Analamanga', 'Anosy'];
+const DEFAULT_AREAS = ['Tout', 'Commune', 'District', 'Fokontany'];
+
+// valeurs de secours si Supabase est injoignable ou si la table n'existe pas
+const FALLBACK_PLACES_BY_AREA = {
+  Commune: ['Antananarivo I', 'Antananarivo II'],
+  District: ['Atsimondrano', 'Avaradrano'],
+  Fokontany: ['Ambohijatovo', 'Analakely'],
+};
+
+const AREA_TABLE_MAP = {
+  Commune: 'referentiel_commune',
+  District: 'referentiel_district',
+  Fokontany: 'referentiel_fokontany',
+};
 
 const SIGNAL_COLORS = {
   '4G': '#1a3d27',
@@ -183,16 +201,91 @@ export function DropDown() {
   const [showStats, setShowStats] = useState(false);
 
   const [area, setArea] = useState(DEFAULT_AREAS);
-  const [placeNames, setPlaceNames] = useState(DEFAULT_PLACES);
+  const [placeNames, setPlaceNames] = useState([]);
+  const [loadingPlaces, setLoadingPlaces] = useState(false);
+  const [placeSearch, setPlaceSearch] = useState('');
 
   const [signalData, setSignalData] = useState(DEFAULT_SIGNAL_DATA);
   const [operatorData, setOperatorData] = useState(DEFAULT_OPERATOR_DATA);
   const [electricityData, setElectricityData] = useState(DEFAULT_ELECTRICITY_DATA);
 
+  // message affiche quand la connexion a Supabase echoue (null = pas d'erreur)
+  const [placesError, setPlacesError] = useState(null);
+
+  useEffect(() => {
+  if (!selectedPlace || selectedPlace === 'Tout') return;
+
+  let cancelled = false;
+
+  async function loadStats() {
+    try {
+      const codecomList = await resolveCodecomList(selectedArea, selectedPlace);
+      const { signal, operator, electricity } = await fetchStatsForZone(codecomList);
+      if (cancelled) return;
+
+      setSignalData(signal.length > 0 ? signal : DEFAULT_SIGNAL_DATA);
+      setOperatorData(operator.length > 0 ? operator : DEFAULT_OPERATOR_DATA);
+      setElectricityData(electricity.length > 0 ? electricity : DEFAULT_ELECTRICITY_DATA);
+    } catch (err) {
+      console.error('Erreur stats pylone:', err.message);
+    }
+  }
+
+  loadStats();
+  return () => { cancelled = true; };
+}, [selectedArea, selectedPlace]);
+
   function openStats(tabId) {
     setActiveTab(tabId);
     setShowStats(true);
   }
+
+  // appelee au clic sur une option du premier dropdown (Commune / District / Fokontany)
+  // va chercher id + nom dans la table Supabase correspondante
+  // si la requete echoue, on retombe sur des valeurs statiques par defaut
+  async function handleAreaSelect(option) {
+    setSelectedArea(option);
+    setOpenArea(false);
+    setPlacesError(null);
+    setPlaceSearch('');
+
+    const table = AREA_TABLE_MAP[option];
+    if (!table) {
+      // cas "Tout" : pas de table associee
+      setPlaceNames([]);
+      setSelectedPlace('Tout');
+      return;
+    }
+
+    setLoadingPlaces(true);
+    try {
+      const { data, error } = await supabase
+        .from(table)
+        .select('nom')
+        .order('nom', { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+      console.log('Nombre de resultats:', data.length);
+      // dedoublonnage des noms (plusieurs lignes peuvent partager le meme nom)
+      const names = [...new Set(data.map((row) => row.nom))];
+      setPlaceNames(names);
+      setSelectedPlace(names[0] ?? 'Tout');
+    } catch (err) {
+      console.error('Erreur Supabase:', err.message);
+      const fallback = FALLBACK_PLACES_BY_AREA[option] ?? [];
+      setPlaceNames(fallback);
+      setSelectedPlace(fallback[0] ?? 'Tout');
+      setPlacesError('Connexion au serveur echouee');
+    } finally {
+      setLoadingPlaces(false);
+    }
+  }
+
+  const filteredPlaceNames = placeNames.filter((option) =>
+    option.toLowerCase().includes(placeSearch.toLowerCase())
+  );
 
   return (
     <>
@@ -219,10 +312,9 @@ export function DropDown() {
                 <Pressable
                   key={option}
                   style={({ hovered, pressed }) => [styles.option, (hovered || pressed) && styles.optionHovered]}
-                  onPress={() => {
-                    setSelectedArea(option);
-                    setOpenArea(false);
-                  }}
+                  onPress={() => handleAreaSelect(option)
+                    
+                  }
                 >
                   <Text>{option}</Text>
                 </Pressable>
@@ -239,22 +331,54 @@ export function DropDown() {
 
           {openPlace && (
             <View style={styles.list}>
-              {placeNames.map((option) => (
-                <Pressable
-                  key={option}
-                  style={({ hovered, pressed }) => [styles.option, (hovered || pressed) && styles.optionHovered]}
-                  onPress={() => {
-                    setSelectedPlace(option);
-                    setOpenPlace(false);
-                  }}
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Rechercher..."
+                value={placeSearch}
+                onChangeText={setPlaceSearch}
+                autoFocus
+              />
+
+              {loadingPlaces ? (
+                <Text style={styles.option}>Chargement...</Text>
+              ) : (
+                <ScrollView
+                  style={styles.suggestionsScroll}
+                  nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled"
                 >
-                  <Text>{option}</Text>
-                </Pressable>
-              ))}
+                  {filteredPlaceNames.length === 0 ? (
+                    <Text style={styles.option}>Aucun resultat</Text>
+                  ) : (
+                    filteredPlaceNames.map((option) => (
+                      <Pressable
+                        key={option}
+                        style={({ hovered, pressed }) => [
+                          styles.option,
+                          (hovered || pressed) && styles.optionHovered,
+                        ]}
+                        onPress={() => {
+                          setSelectedPlace(option);
+                          setOpenPlace(false);
+                          setPlaceSearch('');
+                        }}
+                      >
+                        <Text>{option}</Text>
+                      </Pressable>
+                    ))
+                  )}
+                </ScrollView>
+              )}
             </View>
           )}
         </View>
       </View>
+
+      {placesError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{placesError}</Text>
+        </View>
+      )}
 
       <View style={styles.bottomStat}>
         <Text style={styles.bottomStatLabel}>Couverture reseau dde madagascar</Text>
@@ -293,6 +417,139 @@ export default function StatsScreen() {
       </SafeAreaView>
     </View>
   );
+}
+
+async function resolveCodecomList(area, placeNom) {
+  if (area === 'Commune') {
+    const { data, error } = await supabase
+      .from('referentiel_commune')
+      .select('codecom')
+      .eq('nom', placeNom);
+    if (error) throw error;
+    return data.map((row) => row.codecom);
+  }
+
+  if (area === 'District') {
+    const { data: districts, error: errDist } = await supabase
+      .from('referentiel_district')
+      .select('codedist')
+      .eq('nom', placeNom);
+    if (errDist) throw errDist;
+    const codedistList = districts.map((row) => row.codedist);
+
+    const { data: communes, error: errCom } = await supabase
+      .from('referentiel_commune')
+      .select('codecom')
+      .in('codedist', codedistList);
+    if (errCom) throw errCom;
+    return communes.map((row) => row.codecom);
+  }
+
+  if (area === 'Fokontany') {
+    const { data, error } = await supabase
+      .from('referentiel_fokontany')
+      .select('codecom')
+      .eq('nom', placeNom);
+    if (error) throw error;
+    return data.map((row) => row.codecom);
+  }
+
+  // area === 'Tout' : cherche dans les 3 tables, combine et deduplique
+  const [communeRes, districtRes, fokontanyRes] = await Promise.all([
+    supabase.from('referentiel_commune').select('codecom').eq('nom', placeNom),
+    supabase.from('referentiel_district').select('codedist').eq('nom', placeNom),
+    supabase.from('referentiel_fokontany').select('codecom').eq('nom', placeNom),
+  ]);
+
+  if (communeRes.error) throw communeRes.error;
+  if (districtRes.error) throw districtRes.error;
+  if (fokontanyRes.error) throw fokontanyRes.error;
+
+  const codecomFromCommune = communeRes.data.map((row) => row.codecom);
+  const codecomFromFokontany = fokontanyRes.data.map((row) => row.codecom);
+
+  let codecomFromDistrict = [];
+  if (districtRes.data.length > 0) {
+    const codedistList = districtRes.data.map((row) => row.codedist);
+    const { data: communesOfDistrict, error } = await supabase
+      .from('referentiel_commune')
+      .select('codecom')
+      .in('codedist', codedistList);
+    if (error) throw error;
+    codecomFromDistrict = communesOfDistrict.map((row) => row.codecom);
+  }
+
+  return [...new Set([...codecomFromCommune, ...codecomFromDistrict, ...codecomFromFokontany])];
+}
+
+function classifyEnergie(sourceEnergie) {
+  if (!sourceEnergie) return 'Non renseigne / Autre';
+  if (sourceEnergie === 'ENERGIE SOLAIRE' || sourceEnergie === 'ENERGIE SOLAIRE + EOLIENE') return 'Solaire';
+  if (sourceEnergie === 'JIRAMA') return 'JIRAMA';
+  if (['GE', 'GE PROVISOIRE', 'SOLDIÈSE', 'SOLDIES'].includes(sourceEnergie)) return 'Groupe electrogene';
+  if (sourceEnergie === 'MIXTE' || sourceEnergie.includes('+')) return 'Mixte';
+  return 'Non renseigne / Autre';
+}
+
+const OPERATOR_LABELS = {
+  TELMA: 'Telma',
+  ORANGE: 'Orange',
+  AIRTEL: 'Airtel',
+  GULFSAT: 'Gulfsat',
+};
+
+async function fetchStatsForZone(codecomList) {
+  if (codecomList.length === 0) {
+    return { signal: [], operator: [], electricity: [] };
+  }
+
+  const { data: rows, error } = await supabase
+    .from('infrastructure_pylone')
+    .select('code_operateur, tech_2g, tech_3g, tech_4g, tech_5g, source_energie')
+    .in('codecom', codecomList);
+
+  if (error) throw error;
+
+  const total = rows.length;
+  if (total === 0) {
+    return { signal: [], operator: [], electricity: [] };
+  }
+
+  // signal : taux de couverture par techno (independants, ne somment pas a 100)
+  const nb2g = rows.filter((r) => r.tech_2g === 't').length;
+  const nb3g = rows.filter((r) => r.tech_3g === 't').length;
+  const nb4g = rows.filter((r) => r.tech_4g === 't').length;
+  const nb5g = rows.filter((r) => r.tech_5g === 't').length;
+  const signal = [
+    { label: '2G', value: (nb2g / total) * 100 },
+    { label: '3G', value: (nb3g / total) * 100 },
+    { label: '4G', value: (nb4g / total) * 100 },
+    { label: '5G', value: (nb5g / total) * 100 },
+  ];
+
+  // operateur : repartition exclusive (somme a 100)
+  const operatorCounts = {};
+  rows.forEach((r) => {
+    const key = r.code_operateur;
+    operatorCounts[key] = (operatorCounts[key] ?? 0) + 1;
+  });
+  const operator = Object.entries(operatorCounts).map(([code, count]) => ({
+    label: OPERATOR_LABELS[code] ?? code,
+    value: (count / total) * 100,
+  }));
+
+  // electricite : 5 categories (somme a 100)
+  const electricityCounts = {};
+  rows.forEach((r) => {
+    const categorie = classifyEnergie(r.source_energie);
+    electricityCounts[categorie] = (electricityCounts[categorie] ?? 0) + 1;
+  });
+  const electricity = Object.entries(electricityCounts).map(([label, count]) => ({
+    label,
+    value: (count / total) * 100,
+  }));
+
+  return { signal, operator, electricity };
 }
 
 const styles = StyleSheet.create({
@@ -501,6 +758,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.textDark,
     marginBottom: 4,
+    textAlign: 'center',
+  },
+
+  searchInput: {
+    backgroundColor: '#F2F0EA',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    marginBottom: 8,
+  },
+
+  suggestionsScroll: {
+    maxHeight: 200,
+  },
+
+  errorBanner: {
+    marginHorizontal: 20,
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: '#F4D9CE',
+  },
+
+  errorBannerText: {
+    fontSize: 12,
+    color: '#8A3B1E',
     textAlign: 'center',
   },
 });
