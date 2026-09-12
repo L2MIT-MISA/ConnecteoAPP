@@ -1,13 +1,12 @@
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { createClient } from '@supabase/supabase-js';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { BottomNavigation } from '../components/bottom-navigation';
-import { createClient } from '@supabase/supabase-js';
-import { useEffect } from 'react';
 
-const supabaseUrl = 'http://192.168.11.65:8000';
+const supabaseUrl = 'http://100.103.0.49:8000';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg5MjA5NzE4LCJleHAiOjIxMDQ1Njk3MTh9.8TqQreyifHorvHUkk6qdWM_GixbdXcmnvjcSt4UBkeI';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -97,95 +96,97 @@ function SignalDonut({ data = DEFAULT_SIGNAL_DATA }) {
   let cumulative = 0;
 
   return (
-    <View style={styles.chartCard}>
-      <Text style={styles.chartTitle}>Qualite de signal</Text>
-      <View style={styles.donutRow}>
-        <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
-          {data.map((slice) => {
-            const segmentLength = (slice.value / 100) * circumference;
-            const dashArray = `${segmentLength} ${circumference - segmentLength}`;
-            const dashOffset = -((cumulative / 100) * circumference);
-            cumulative += slice.value;
-            const color = colorFor(slice.label, SIGNAL_COLORS);
+    <ContainerAnimated dataChanged={JSON.stringify(data)}>
+      <View style={styles.chartCard}>
+        <Text style={styles.chartTitle}>Qualite de signal</Text>
+        <View style={styles.donutRow}>
+          <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
+            {data.map((slice) => {
+              const segmentLength = (slice.value / 100) * circumference;
+              const dashArray = `${segmentLength} ${circumference - segmentLength}`;
+              const dashOffset = -((cumulative / 100) * circumference);
+              cumulative += slice.value;
+              const color = colorFor(slice.label, SIGNAL_COLORS);
 
-            return (
-              <Circle
-                key={slice.label}
-                cx={size / 2}
-                cy={size / 2}
-                r={radius}
-                stroke={color}
-                strokeWidth={strokeWidth}
-                strokeDasharray={dashArray}
-                strokeDashoffset={dashOffset}
-                fill="transparent"
-              />
-            );
-          })}
-        </Svg>
+              return (
+                <Circle
+                  key={slice.label}
+                  cx={size / 2}
+                  cy={size / 2}
+                  r={radius}
+                  stroke={color}
+                  strokeWidth={strokeWidth}
+                  strokeDasharray={dashArray}
+                  strokeDashoffset={dashOffset}
+                  fill="transparent"
+                />
+              );
+            })}
+          </Svg>
 
-        <View style={styles.legend}>
-          {data.map((slice) => (
-            <View key={slice.label} style={styles.legendRow}>
-              <View style={[styles.legendDot, { backgroundColor: colorFor(slice.label, SIGNAL_COLORS) }]} />
-              <Text style={styles.legendLabel}>{slice.label}</Text>
-              <Text style={styles.legendValue}>{slice.value}%</Text>
-            </View>
-          ))}
+          <View style={styles.legend}>
+            {data.map((slice) => (
+              <View key={slice.label} style={styles.legendRow}>
+                <View style={[styles.legendDot, { backgroundColor: colorFor(slice.label, SIGNAL_COLORS) }]} />
+                <Text style={styles.legendLabel}>{slice.label}</Text>
+                <Text style={styles.legendValue}>{parseFloat(slice.value.toFixed(2))}%</Text>
+              </View>
+            ))}
+          </View>
         </View>
       </View>
-    </View>
+    </ContainerAnimated>
   );
 }
 
 //affichage des stats d operateurs
 function OperatorBarChart({ data = DEFAULT_OPERATOR_DATA }) {
   return (
-    <View style={styles.chartCard}>
-      <Text style={styles.chartTitle}>Operateur</Text>
-      {data.map((row) => (
-        <View key={row.label} style={styles.barRow}>
-          <View style={styles.barTop}>
-            <Text style={styles.legendLabel}>{row.label}</Text>
-            <Text style={styles.legendValue}>{row.value}%</Text>
+    <ContainerAnimated dataChanged={JSON.stringify(data)}>
+      <View style={styles.chartCard}>
+        <Text style={styles.chartTitle}>Operateur</Text>
+        {data.map((row) => (
+          <View key={row.label} style={styles.barRow}>
+            <View style={styles.barTop}>
+              <Text style={styles.legendLabel}>{row.label}</Text>
+              <Text style={styles.legendValue}>{parseFloat(row.value.toFixed(2))}%</Text>
+            </View>
+              <AnimatedProgressBar
+                value={row.value}
+                color={colorFor(row.label, OPERATOR_COLORS)}
+              />
           </View>
-          <View style={styles.barTrack}>
-            <View
-              style={[
-                styles.barFill,
-                { width: `${row.value}%`, backgroundColor: colorFor(row.label, OPERATOR_COLORS) },
-              ]}
-            />
-          </View>
-        </View>
-      ))}
-    </View>
+        ))}
+      </View>
+    </ContainerAnimated>
   );
 }
 
 //affichage de stats d electricite
 function ElectricityStackedBar({ data = DEFAULT_ELECTRICITY_DATA }) {
   return (
-    <View style={styles.chartCard}>
-      <Text style={styles.chartTitle}>Electricite</Text>
-      <View style={styles.stackBar}>
-        {data.map((seg) => (
-          <View
-            key={seg.label}
-            style={{ width: `${seg.value}%`, backgroundColor: colorFor(seg.label, ELECTRICITY_COLORS), height: '100%' }}
-          />
-        ))}
+    <ContainerAnimated dataChanged={JSON.stringify(data)}>
+      <View style={styles.chartCard}>
+        <Text style={styles.chartTitle}>Electricite</Text>
+        <View style={styles.stackBar}>
+          {data.map((seg) => (
+            <View
+              key={seg.label}
+              style={{ width: `${seg.value}%`, backgroundColor: colorFor(seg.label, ELECTRICITY_COLORS), height: '100%' }}
+            />
+          ))}
+        </View>
+        <View style={styles.legend}>
+          {data.map((seg) => (
+            <View key={seg.label} style={styles.legendRow}>
+              <View style={[styles.legendDot, { backgroundColor: colorFor(seg.label, ELECTRICITY_COLORS) }]} />
+              <Text style={styles.legendLabel}>{seg.label}</Text>
+              <Text style={styles.legendValue}>{parseFloat(seg.value.toFixed(2))}%</Text>
+            </View>
+          ))}
+        </View>
       </View>
-      <View style={styles.legend}>
-        {data.map((seg) => (
-          <View key={seg.label} style={styles.legendRow}>
-            <View style={[styles.legendDot, { backgroundColor: colorFor(seg.label, ELECTRICITY_COLORS) }]} />
-            <Text style={styles.legendLabel}>{seg.label}</Text>
-            <Text style={styles.legendValue}>{seg.value}%</Text>
-          </View>
-        ))}
-      </View>
-    </View>
+    </ContainerAnimated>
   );
 }
 
@@ -550,6 +551,64 @@ async function fetchStatsForZone(codecomList) {
   }));
 
   return { signal, operator, electricity };
+}
+
+function ContainerAnimated({ children, dataChanged }) 
+{
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    opacity.setValue(0);
+
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 100,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      })
+    ]).start();
+  }, [dataChanged]);
+
+  return (
+    <Animated.View style={{opacity}}>
+      {children}
+    </Animated.View>
+  );
+}
+
+function AnimatedProgressBar({ value, color }) 
+{
+  const progress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    progress.setValue(0);
+
+    Animated.timing(progress, {
+      toValue: value,
+      duration: 800,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: false,
+    }).start();
+  }, [value]);
+
+  const width = progress.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+  });
+
+  return (
+    <View style={styles.barTrack}>
+      <Animated.View
+        style={[styles.barFill,
+          {
+            width,
+            backgroundColor: color,
+          },
+        ]}
+      />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
