@@ -266,6 +266,8 @@ export function DropDown() {
   const [openArea, setOpenArea] = useState(false);
   const [selectedArea, setSelectedArea] = useState('Tout');
 
+  const [totalPylones, setTotalPylones] = useState(null);
+
   const [openPlace, setOpenPlace] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState('Tout');
 
@@ -287,33 +289,33 @@ export function DropDown() {
   const [nationalCoverage, setNationalCoverage] = useState(null);
 
     useEffect(() => {
-    let cancelled = false;
+      let cancelled = false;
 
-    async function loadStats() {
-      try {
-        let signal, operator, electricity;
+      async function loadStats() {
+        try {
+          let signal, operator, electricity, total;
 
-        if (!selectedPlace || selectedPlace === 'Tout') {
-          // aucune zone precise selectionnee : on calcule sur tout Madagascar
-          ({ signal, operator, electricity } = await fetchStatsGlobal());
-        } else {
-          const codecomList = await resolveCodecomList(selectedArea, selectedPlace);
-          ({ signal, operator, electricity } = await fetchStatsForZone(codecomList));
+          if (!selectedPlace || selectedPlace === 'Tout') {
+            ({ signal, operator, electricity, total } = await fetchStatsGlobal());
+          } else {
+            const codecomList = await resolveCodecomList(selectedArea, selectedPlace);
+            ({ signal, operator, electricity, total } = await fetchStatsForZone(codecomList));
+          }
+
+          if (cancelled) return;
+
+          setSignalData(signal.length > 0 ? signal : DEFAULT_SIGNAL_DATA);
+          setOperatorData(operator.length > 0 ? operator : DEFAULT_OPERATOR_DATA);
+          setElectricityData(electricity.length > 0 ? electricity : DEFAULT_ELECTRICITY_DATA);
+          setTotalPylones(total ?? 0);
+        } catch (err) {
+          console.error('Erreur stats pylone:', err.message);
         }
-
-        if (cancelled) return;
-
-        setSignalData(signal.length > 0 ? signal : DEFAULT_SIGNAL_DATA);
-        setOperatorData(operator.length > 0 ? operator : DEFAULT_OPERATOR_DATA);
-        setElectricityData(electricity.length > 0 ? electricity : DEFAULT_ELECTRICITY_DATA);
-      } catch (err) {
-        console.error('Erreur stats pylone:', err.message);
       }
-    }
 
-    loadStats();
-    return () => { cancelled = true; };
-  }, [selectedArea, selectedPlace]);
+      loadStats();
+      return () => { cancelled = true; };
+    }, [selectedArea, selectedPlace]);
 
   // couverture nationale pour le bandeau du bas : calculee une seule fois au montage
   useEffect(() => {
@@ -491,6 +493,12 @@ export function DropDown() {
           {activeTab === 'signal' && <SignalBarChart data={signalData} />}
           {activeTab === 'electricity' && <ElectricityDonut data={electricityData} />}
           {activeTab === 'operator' && <OperatorBarChart data={operatorData} />}
+          {totalPylones !== null && (
+            <Text style={styles.totalPylonesText}>
+              {totalPylones} pylone{totalPylones > 1 ? 's' : ''} recense{totalPylones > 1 ? 's' : ''}
+              {selectedPlace && selectedPlace !== 'Tout' ? ` a ${selectedPlace}` : ' au total'}
+            </Text>
+          )}
         </ScrollView>
       )}
 
@@ -660,7 +668,7 @@ const OPERATOR_LABELS = {
 function computeStats(rows) {
   const total = rows.length;
   if (total === 0) {
-    return { signal: [], operator: [], electricity: [] };
+    return { signal: [], operator: [], electricity: [], total: 0 };
   }
 
   // signal : taux de couverture par techno (independants, ne somment pas a 100)
@@ -697,7 +705,7 @@ function computeStats(rows) {
     value: (count / total) * 100,
   }));
 
-  return { signal, operator, electricity };
+  return { signal, operator, electricity, total };
 }
 
 async function fetchStatsForZone(codecomList) {
@@ -787,6 +795,13 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     backgroundColor: COLORS.background,
+  },
+  totalPylonesText: {
+    fontSize: 13,
+    color: COLORS.textDark,
+    textAlign: 'center',
+    marginTop: 12,
+    fontWeight: '500',
   },
 
   container: {
