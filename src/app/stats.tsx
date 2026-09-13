@@ -45,16 +45,20 @@ const DEFAULT_ELECTRICITY_DATA = [
 ];
 
 //format de donnees attendus
-const DEFAULT_AREAS = ['Tout', 'Commune', 'District', 'Fokontany'];
+const DEFAULT_AREAS = ['Tout', 'Province', 'Region', 'District', 'Commune', 'Fokontany'];
 
 // valeurs de secours si Supabase est injoignable ou si la table n'existe pas
 const FALLBACK_PLACES_BY_AREA = {
+  Province: ['ANTANANARIVO', 'ANTSIRANANA', 'FIANARANTSOA', 'MAHAJANGA', 'TOAMASINA', 'TOLIARA'],
+  Region: ['ANALAMANGA', 'BONGOLAVA', 'ITASY'],
   Commune: ['Antananarivo I', 'Antananarivo II'],
   District: ['Atsimondrano', 'Avaradrano'],
   Fokontany: ['Ambohijatovo', 'Analakely'],
 };
 
 const AREA_TABLE_MAP = {
+  Province: 'referentiel_province',
+  Region: 'referentiel_region',
   Commune: 'referentiel_commune',
   District: 'referentiel_district',
   Fokontany: 'referentiel_fokontany',
@@ -272,36 +276,63 @@ export function DropDown() {
   const [placeNames, setPlaceNames] = useState([]);
   const [loadingPlaces, setLoadingPlaces] = useState(false);
   const [placeSearch, setPlaceSearch] = useState('');
+  const [selectedCode, setSelectedCode] = useState(null);
 
   const [signalData, setSignalData] = useState(DEFAULT_SIGNAL_DATA);
   const [operatorData, setOperatorData] = useState(DEFAULT_OPERATOR_DATA);
   const [electricityData, setElectricityData] = useState(DEFAULT_ELECTRICITY_DATA);
-
-  // message affiche quand la connexion a Supabase echoue (null = pas d'erreur)
   const [placesError, setPlacesError] = useState(null);
 
-  useEffect(() => {
-  if (!selectedPlace || selectedPlace === 'Tout') return;
+  // couverture reseau nationale affichee dans le bandeau du bas (calculee une seule fois)
+  const [nationalCoverage, setNationalCoverage] = useState(null);
 
-  let cancelled = false;
+    useEffect(() => {
+    let cancelled = false;
 
-  async function loadStats() {
-    try {
-      const codecomList = await resolveCodecomList(selectedArea, selectedPlace);
-      const { signal, operator, electricity } = await fetchStatsForZone(codecomList);
-      if (cancelled) return;
+    async function loadStats() {
+      try {
+        let signal, operator, electricity;
 
-      setSignalData(signal.length > 0 ? signal : DEFAULT_SIGNAL_DATA);
-      setOperatorData(operator.length > 0 ? operator : DEFAULT_OPERATOR_DATA);
-      setElectricityData(electricity.length > 0 ? electricity : DEFAULT_ELECTRICITY_DATA);
-    } catch (err) {
-      console.error('Erreur stats pylone:', err.message);
+        if (!selectedPlace || selectedPlace === 'Tout') {
+          // aucune zone precise selectionnee : on calcule sur tout Madagascar
+          ({ signal, operator, electricity } = await fetchStatsGlobal());
+        } else {
+          const codecomList = await resolveCodecomList(selectedArea, selectedPlace);
+          ({ signal, operator, electricity } = await fetchStatsForZone(codecomList));
+        }
+
+        if (cancelled) return;
+
+        setSignalData(signal.length > 0 ? signal : DEFAULT_SIGNAL_DATA);
+        setOperatorData(operator.length > 0 ? operator : DEFAULT_OPERATOR_DATA);
+        setElectricityData(electricity.length > 0 ? electricity : DEFAULT_ELECTRICITY_DATA);
+      } catch (err) {
+        console.error('Erreur stats pylone:', err.message);
+      }
     }
-  }
 
-  loadStats();
-  return () => { cancelled = true; };
-}, [selectedArea, selectedPlace]);
+    loadStats();
+    return () => { cancelled = true; };
+  }, [selectedArea, selectedPlace]);
+
+  // couverture nationale pour le bandeau du bas : calculee une seule fois au montage
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadNationalCoverage() {
+      try {
+        const { signal } = await fetchStatsGlobal();
+        if (cancelled || signal.length === 0) return;
+        const moyenne = signal.reduce((sum, s) => sum + s.value, 0) / signal.length;
+        setNationalCoverage(moyenne);
+      } catch (err) {
+        console.error('Erreur couverture nationale:', err.message);
+      }
+    }
+
+    loadNationalCoverage();
+    return () => { cancelled = true; };
+  }, []);
 
   function openStats(tabId) {
     setActiveTab(tabId);
@@ -450,7 +481,9 @@ export function DropDown() {
 
       <View style={styles.bottomStat}>
         <Text style={styles.bottomStatLabel}>Couverture réseau de Madagascar</Text>
-        <Text style={styles.bottomStatValue}> 80 %</Text>
+        <Text style={styles.bottomStatValue}>
+          {nationalCoverage !== null ? ` ${parseFloat(nationalCoverage.toFixed(1))} %` : ' ... '}
+        </Text>
       </View>
 
       {showStats && (
@@ -487,15 +520,64 @@ export default function StatsScreen() {
   );
 }
 
+async function districtsToCodecom(codedistList) {
+  if (codedistList.length === 0) return [];
+  const { data, error } = await supabase
+    .from('referentiel_commune')
+    .select('codecom')
+    .in('codedist', codedistList);
+  if (error) throw error;
+  return data.map((row) => row.codecom);
+}
+
+async function regionsToCodecom(coderegList) {
+  if (coderegList.length === 0) return [];
+  const { data, error } = await supabase
+    .from('referentiel_district')
+    .select('codedist')
+    .in('codereg', coderegList);
+  if (error) throw error;
+  return districtsToCodecom(data.map((row) => row.codedist));
+}
+
+async function provincesToCodecom(codeProvinceList) {
+  if (codeProvinceList.length === 0) return [];
+  const { data, error } = await supabase
+    .from('referentiel_region')
+    .select('codereg')
+    .in('code_province', codeProvinceList);
+  if (error) throw error;
+  return regionsToCodecom(data.map((row) => row.codereg));
+}
+
 async function resolveCodecomList(area, placeNom) {
-  if (area === 'Commune') {
-    const { data, error } = await supabase
-      .from('referentiel_commune')
-      .select('codecom')
-      .eq('nom', placeNom);
-    if (error) throw error;
-    return data.map((row) => row.codecom);
-  }
+  
+    if (area === 'Province') {
+      const { data, error } = await supabase
+        .from('referentiel_province')
+        .select('code_province')
+        .eq('nom', placeNom);
+      if (error) throw error;
+      return provincesToCodecom(data.map((row) => row.code_province));
+    }
+
+    if (area === 'Region') {
+      const { data, error } = await supabase
+        .from('referentiel_region')
+        .select('codereg')
+        .eq('nom', placeNom);
+      if (error) throw error;
+      return regionsToCodecom(data.map((row) => row.codereg));
+    }
+
+    if (area === 'Commune') {
+      const { data, error } = await supabase
+        .from('referentiel_commune')
+        .select('codecom')
+        .eq('nom', placeNom);
+      if (error) throw error;
+      return data.map((row) => row.codecom);
+    }
 
   if (area === 'District') {
     const { data: districts, error: errDist } = await supabase
@@ -523,16 +605,24 @@ async function resolveCodecomList(area, placeNom) {
   }
 
   // area === 'Tout' : cherche dans les 3 tables, combine et deduplique
-  const [communeRes, districtRes, fokontanyRes] = await Promise.all([
+  const [provinceRes, regionRes, communeRes, districtRes, fokontanyRes] = await Promise.all([
+    supabase.from('referentiel_province').select('code_province').eq('nom', placeNom),
+    supabase.from('referentiel_region').select('codereg').eq('nom', placeNom),
     supabase.from('referentiel_commune').select('codecom').eq('nom', placeNom),
     supabase.from('referentiel_district').select('codedist').eq('nom', placeNom),
     supabase.from('referentiel_fokontany').select('codecom').eq('nom', placeNom),
   ]);
 
+  if (provinceRes.error) throw provinceRes.error;
+  if (regionRes.error) throw regionRes.error;
   if (communeRes.error) throw communeRes.error;
   if (districtRes.error) throw districtRes.error;
   if (fokontanyRes.error) throw fokontanyRes.error;
 
+  const [codecomFromProvince, codecomFromRegion] = await Promise.all([
+    provincesToCodecom(provinceRes.data.map((row) => row.code_province)),
+    regionsToCodecom(regionRes.data.map((row) => row.codereg)),
+  ]);
   const codecomFromCommune = communeRes.data.map((row) => row.codecom);
   const codecomFromFokontany = fokontanyRes.data.map((row) => row.codecom);
 
@@ -547,7 +637,7 @@ async function resolveCodecomList(area, placeNom) {
     codecomFromDistrict = communesOfDistrict.map((row) => row.codecom);
   }
 
-  return [...new Set([...codecomFromCommune, ...codecomFromDistrict, ...codecomFromFokontany])];
+  return [...new Set([...codecomFromProvince, ...codecomFromRegion,...codecomFromCommune, ...codecomFromDistrict, ...codecomFromFokontany])];
 }
 
 function classifyEnergie(sourceEnergie) {
@@ -566,18 +656,8 @@ const OPERATOR_LABELS = {
   GULFSAT: 'Gulfsat',
 };
 
-async function fetchStatsForZone(codecomList) {
-  if (codecomList.length === 0) {
-    return { signal: [], operator: [], electricity: [] };
-  }
-
-  const { data: rows, error } = await supabase
-    .from('infrastructure_pylone')
-    .select('code_operateur, tech_2g, tech_3g, tech_4g, tech_5g, source_energie')
-    .in('codecom', codecomList);
-
-  if (error) throw error;
-
+// factorise le calcul des 3 series a partir des lignes brutes de infrastructure_pylone
+function computeStats(rows) {
   const total = rows.length;
   if (total === 0) {
     return { signal: [], operator: [], electricity: [] };
@@ -618,6 +698,30 @@ async function fetchStatsForZone(codecomList) {
   }));
 
   return { signal, operator, electricity };
+}
+
+async function fetchStatsForZone(codecomList) {
+  if (codecomList.length === 0) {
+    return { signal: [], operator: [], electricity: [] };
+  }
+
+  const { data: rows, error } = await supabase
+    .from('infrastructure_pylone')
+    .select('code_operateur, tech_2g, tech_3g, tech_4g, tech_5g, source_energie')
+    .in('codecom', codecomList);
+
+  if (error) throw error;
+  return computeStats(rows);
+}
+
+// meme calcul mais sans filtre : tout le pays
+async function fetchStatsGlobal() {
+  const { data: rows, error } = await supabase
+    .from('infrastructure_pylone')
+    .select('code_operateur, tech_2g, tech_3g, tech_4g, tech_5g, source_energie');
+
+  if (error) throw error;
+  return computeStats(rows);
 }
 
 function ContainerAnimated({ children, dataChanged }) 
