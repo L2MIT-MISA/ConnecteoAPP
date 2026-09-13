@@ -1,15 +1,17 @@
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
-import { createClient } from '@supabase/supabase-js';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { BottomNavigation } from '../components/bottom-navigation';
-
-const supabaseUrl = 'http://100.103.0.49:8000';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg5MjA5NzE4LCJleHAiOjIxMDQ1Njk3MTh9.8TqQreyifHorvHUkk6qdWM_GixbdXcmnvjcSt4UBkeI';
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import {
+  AREA_TABLE_MAP,
+  FALLBACK_PLACES_BY_AREA,
+  fetchPlaceNames,
+  fetchStatsForZone,
+  fetchStatsGlobal,
+  resolveCodecomList,
+} from '../api/stats-api';
 
 const COLORS = {
   dark: '#1B3A2B',
@@ -46,23 +48,6 @@ const DEFAULT_ELECTRICITY_DATA = [
 
 //format de donnees attendus
 const DEFAULT_AREAS = ['Tout', 'Province', 'Region', 'District', 'Commune', 'Fokontany'];
-
-// valeurs de secours si Supabase est injoignable ou si la table n'existe pas
-const FALLBACK_PLACES_BY_AREA = {
-  Province: ['ANTANANARIVO', 'ANTSIRANANA', 'FIANARANTSOA', 'MAHAJANGA', 'TOAMASINA', 'TOLIARA'],
-  Region: ['ANALAMANGA', 'BONGOLAVA', 'ITASY'],
-  Commune: ['Antananarivo I', 'Antananarivo II'],
-  District: ['Atsimondrano', 'Avaradrano'],
-  Fokontany: ['Ambohijatovo', 'Analakely'],
-};
-
-const AREA_TABLE_MAP = {
-  Province: 'referentiel_province',
-  Region: 'referentiel_region',
-  Commune: 'referentiel_commune',
-  District: 'referentiel_district',
-  Fokontany: 'referentiel_fokontany',
-};
 
 const SIGNAL_COLORS = {
   '4G': '#1a3d27',
@@ -265,6 +250,7 @@ function ElectricityDonut({ data = DEFAULT_ELECTRICITY_DATA }) {
 export function DropDown() {
   const [openArea, setOpenArea] = useState(false);
   const [selectedArea, setSelectedArea] = useState('Tout');
+  const [totalPylones, setTotalPylones] = useState(null);
 
   const [openPlace, setOpenPlace] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState('Tout');
@@ -286,19 +272,19 @@ export function DropDown() {
   // couverture reseau nationale affichee dans le bandeau du bas (calculee une seule fois)
   const [nationalCoverage, setNationalCoverage] = useState(null);
 
-    useEffect(() => {
+  useEffect(() => {
     let cancelled = false;
 
     async function loadStats() {
       try {
-        let signal, operator, electricity;
+        let signal, operator, electricity, total;
 
         if (!selectedPlace || selectedPlace === 'Tout') {
           // aucune zone precise selectionnee : on calcule sur tout Madagascar
-          ({ signal, operator, electricity } = await fetchStatsGlobal());
+          ({ signal, operator, electricity, total } = await fetchStatsGlobal());
         } else {
           const codecomList = await resolveCodecomList(selectedArea, selectedPlace);
-          ({ signal, operator, electricity } = await fetchStatsForZone(codecomList));
+          ({ signal, operator, electricity, total } = await fetchStatsForZone(codecomList));
         }
 
         if (cancelled) return;
@@ -306,6 +292,7 @@ export function DropDown() {
         setSignalData(signal.length > 0 ? signal : DEFAULT_SIGNAL_DATA);
         setOperatorData(operator.length > 0 ? operator : DEFAULT_OPERATOR_DATA);
         setElectricityData(electricity.length > 0 ? electricity : DEFAULT_ELECTRICITY_DATA);
+        setTotalPylones(total ?? 0);
       } catch (err) {
         console.error('Erreur stats pylone:', err.message);
       }
@@ -340,7 +327,7 @@ export function DropDown() {
   }
 
   // appelee au clic sur une option du premier dropdown (Commune / District / Fokontany)
-  // va chercher id + nom dans la table Supabase correspondante
+  // va chercher les noms de lieux via la couche backend (stats-api)
   // si la requete echoue, on retombe sur des valeurs statiques par defaut
   async function handleAreaSelect(option) {
     setSelectedArea(option);
@@ -348,8 +335,7 @@ export function DropDown() {
     setPlacesError(null);
     setPlaceSearch('');
 
-    const table = AREA_TABLE_MAP[option];
-    if (!table) {
+    if (!AREA_TABLE_MAP[option]) {
       // cas "Tout" : pas de table associee
       setPlaceNames([]);
       setSelectedPlace('Tout');
@@ -358,17 +344,7 @@ export function DropDown() {
 
     setLoadingPlaces(true);
     try {
-      const { data, error } = await supabase
-        .from(table)
-        .select('nom')
-        .order('nom', { ascending: true });
-
-      if (error) {
-        throw error;
-      }
-      console.log('Nombre de resultats:', data.length);
-      // dedoublonnage des noms (plusieurs lignes peuvent partager le meme nom)
-      const names = [...new Set(data.map((row) => row.nom))];
+      const names = await fetchPlaceNames(option);
       setPlaceNames(names);
       setSelectedPlace(names[0] ?? 'Tout');
     } catch (err) {
@@ -411,9 +387,7 @@ export function DropDown() {
                 <Pressable
                   key={option}
                   style={({ hovered, pressed }) => [styles.option, (hovered || pressed) && styles.optionHovered]}
-                  onPress={() => handleAreaSelect(option)
-                    
-                  }
+                  onPress={() => handleAreaSelect(option)}
                 >
                   <Text>{option}</Text>
                 </Pressable>
@@ -491,6 +465,12 @@ export function DropDown() {
           {activeTab === 'signal' && <SignalBarChart data={signalData} />}
           {activeTab === 'electricity' && <ElectricityDonut data={electricityData} />}
           {activeTab === 'operator' && <OperatorBarChart data={operatorData} />}
+          {totalPylones !== null && (
+            <Text style={styles.totalPylonesText}>
+              {totalPylones} pylone{totalPylones > 1 ? 's' : ''} recense{totalPylones > 1 ? 's' : ''}
+              {selectedPlace && selectedPlace !== 'Tout' ? ` a ${selectedPlace}` : ' au total'}
+            </Text>
+          )}
         </ScrollView>
       )}
 
@@ -520,211 +500,7 @@ export default function StatsScreen() {
   );
 }
 
-async function districtsToCodecom(codedistList) {
-  if (codedistList.length === 0) return [];
-  const { data, error } = await supabase
-    .from('referentiel_commune')
-    .select('codecom')
-    .in('codedist', codedistList);
-  if (error) throw error;
-  return data.map((row) => row.codecom);
-}
-
-async function regionsToCodecom(coderegList) {
-  if (coderegList.length === 0) return [];
-  const { data, error } = await supabase
-    .from('referentiel_district')
-    .select('codedist')
-    .in('codereg', coderegList);
-  if (error) throw error;
-  return districtsToCodecom(data.map((row) => row.codedist));
-}
-
-async function provincesToCodecom(codeProvinceList) {
-  if (codeProvinceList.length === 0) return [];
-  const { data, error } = await supabase
-    .from('referentiel_region')
-    .select('codereg')
-    .in('code_province', codeProvinceList);
-  if (error) throw error;
-  return regionsToCodecom(data.map((row) => row.codereg));
-}
-
-async function resolveCodecomList(area, placeNom) {
-  
-    if (area === 'Province') {
-      const { data, error } = await supabase
-        .from('referentiel_province')
-        .select('code_province')
-        .eq('nom', placeNom);
-      if (error) throw error;
-      return provincesToCodecom(data.map((row) => row.code_province));
-    }
-
-    if (area === 'Region') {
-      const { data, error } = await supabase
-        .from('referentiel_region')
-        .select('codereg')
-        .eq('nom', placeNom);
-      if (error) throw error;
-      return regionsToCodecom(data.map((row) => row.codereg));
-    }
-
-    if (area === 'Commune') {
-      const { data, error } = await supabase
-        .from('referentiel_commune')
-        .select('codecom')
-        .eq('nom', placeNom);
-      if (error) throw error;
-      return data.map((row) => row.codecom);
-    }
-
-  if (area === 'District') {
-    const { data: districts, error: errDist } = await supabase
-      .from('referentiel_district')
-      .select('codedist')
-      .eq('nom', placeNom);
-    if (errDist) throw errDist;
-    const codedistList = districts.map((row) => row.codedist);
-
-    const { data: communes, error: errCom } = await supabase
-      .from('referentiel_commune')
-      .select('codecom')
-      .in('codedist', codedistList);
-    if (errCom) throw errCom;
-    return communes.map((row) => row.codecom);
-  }
-
-  if (area === 'Fokontany') {
-    const { data, error } = await supabase
-      .from('referentiel_fokontany')
-      .select('codecom')
-      .eq('nom', placeNom);
-    if (error) throw error;
-    return data.map((row) => row.codecom);
-  }
-
-  // area === 'Tout' : cherche dans les 3 tables, combine et deduplique
-  const [provinceRes, regionRes, communeRes, districtRes, fokontanyRes] = await Promise.all([
-    supabase.from('referentiel_province').select('code_province').eq('nom', placeNom),
-    supabase.from('referentiel_region').select('codereg').eq('nom', placeNom),
-    supabase.from('referentiel_commune').select('codecom').eq('nom', placeNom),
-    supabase.from('referentiel_district').select('codedist').eq('nom', placeNom),
-    supabase.from('referentiel_fokontany').select('codecom').eq('nom', placeNom),
-  ]);
-
-  if (provinceRes.error) throw provinceRes.error;
-  if (regionRes.error) throw regionRes.error;
-  if (communeRes.error) throw communeRes.error;
-  if (districtRes.error) throw districtRes.error;
-  if (fokontanyRes.error) throw fokontanyRes.error;
-
-  const [codecomFromProvince, codecomFromRegion] = await Promise.all([
-    provincesToCodecom(provinceRes.data.map((row) => row.code_province)),
-    regionsToCodecom(regionRes.data.map((row) => row.codereg)),
-  ]);
-  const codecomFromCommune = communeRes.data.map((row) => row.codecom);
-  const codecomFromFokontany = fokontanyRes.data.map((row) => row.codecom);
-
-  let codecomFromDistrict = [];
-  if (districtRes.data.length > 0) {
-    const codedistList = districtRes.data.map((row) => row.codedist);
-    const { data: communesOfDistrict, error } = await supabase
-      .from('referentiel_commune')
-      .select('codecom')
-      .in('codedist', codedistList);
-    if (error) throw error;
-    codecomFromDistrict = communesOfDistrict.map((row) => row.codecom);
-  }
-
-  return [...new Set([...codecomFromProvince, ...codecomFromRegion,...codecomFromCommune, ...codecomFromDistrict, ...codecomFromFokontany])];
-}
-
-function classifyEnergie(sourceEnergie) {
-  if (!sourceEnergie) return 'Non renseigne / Autre';
-  if (sourceEnergie === 'ENERGIE SOLAIRE' || sourceEnergie === 'ENERGIE SOLAIRE + EOLIENE') return 'Solaire';
-  if (sourceEnergie === 'JIRAMA') return 'Secteur (JIRAMA)';
-  if (['GE', 'GE PROVISOIRE', 'SOLDIÈSE', 'SOLDIES'].includes(sourceEnergie)) return 'Groupe electrogene';
-  if (sourceEnergie === 'MIXTE' || sourceEnergie.includes('+')) return 'Mixte';
-  return 'Non renseigne / Autre';
-}
-
-const OPERATOR_LABELS = {
-  TELMA: 'Telma',
-  ORANGE: 'Orange',
-  AIRTEL: 'Airtel',
-  GULFSAT: 'Gulfsat',
-};
-
-// factorise le calcul des 3 series a partir des lignes brutes de infrastructure_pylone
-function computeStats(rows) {
-  const total = rows.length;
-  if (total === 0) {
-    return { signal: [], operator: [], electricity: [] };
-  }
-
-  // signal : taux de couverture par techno (independants, ne somment pas a 100)
-  const nb2g = rows.filter((r) => r.tech_2g === 't').length;
-  const nb3g = rows.filter((r) => r.tech_3g === 't').length;
-  const nb4g = rows.filter((r) => r.tech_4g === 't').length;
-  const nb5g = rows.filter((r) => r.tech_5g === 't').length;
-  const signal = [
-    { label: '2G', value: (nb2g / total) * 100 },
-    { label: '3G', value: (nb3g / total) * 100 },
-    { label: '4G', value: (nb4g / total) * 100 },
-    { label: '5G', value: (nb5g / total) * 100 },
-  ];
-
-  // operateur : repartition exclusive (somme a 100)
-  const operatorCounts = {};
-  rows.forEach((r) => {
-    const key = r.code_operateur;
-    operatorCounts[key] = (operatorCounts[key] ?? 0) + 1;
-  });
-  const operator = Object.entries(operatorCounts).map(([code, count]) => ({
-    label: OPERATOR_LABELS[code] ?? code,
-    value: (count / total) * 100,
-  }));
-
-  // electricite : 5 categories (somme a 100)
-  const electricityCounts = {};
-  rows.forEach((r) => {
-    const categorie = classifyEnergie(r.source_energie);
-    electricityCounts[categorie] = (electricityCounts[categorie] ?? 0) + 1;
-  });
-  const electricity = Object.entries(electricityCounts).map(([label, count]) => ({
-    label,
-    value: (count / total) * 100,
-  }));
-
-  return { signal, operator, electricity };
-}
-
-async function fetchStatsForZone(codecomList) {
-  if (codecomList.length === 0) {
-    return { signal: [], operator: [], electricity: [] };
-  }
-
-  const { data: rows, error } = await supabase
-    .from('infrastructure_pylone')
-    .select('code_operateur, tech_2g, tech_3g, tech_4g, tech_5g, source_energie')
-    .in('codecom', codecomList);
-
-  if (error) throw error;
-  return computeStats(rows);
-}
-
-// meme calcul mais sans filtre : tout le pays
-async function fetchStatsGlobal() {
-  const { data: rows, error } = await supabase
-    .from('infrastructure_pylone')
-    .select('code_operateur, tech_2g, tech_3g, tech_4g, tech_5g, source_energie');
-
-  if (error) throw error;
-  return computeStats(rows);
-}
-
-function ContainerAnimated({ children, dataChanged }) 
+function ContainerAnimated({ children, dataChanged })
 {
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -748,7 +524,7 @@ function ContainerAnimated({ children, dataChanged })
   );
 }
 
-function AnimatedProgressBar({ value, color }) 
+function AnimatedProgressBar({ value, color })
 {
   const progress = useRef(new Animated.Value(0)).current;
 
@@ -1020,10 +796,10 @@ const styles = StyleSheet.create({
   },
 
   verticalBarsRow: {
-  flexDirection: 'row',
-  alignItems: 'flex-end',
-  justifyContent: 'space-around',
-  height: 160,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-around',
+    height: 160,
   },
 
   verticalBarColumn: {
@@ -1045,5 +821,12 @@ const styles = StyleSheet.create({
   verticalBarFill: {
     width: '100%',
     borderRadius: 6,
+  },
+  totalPylonesText: {
+    fontSize: 13,
+    color: COLORS.textDark,
+    textAlign: 'center',
+    marginTop: 12,
+    fontWeight: '500',
   },
 });
