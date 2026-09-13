@@ -25,23 +25,23 @@ const COLORS = {
 
 // donnees par defaut et format a suivre pour les requetes plus tard
 const DEFAULT_SIGNAL_DATA = [
-  { label: '4G', value: 56 },
-  { label: '3G', value: 26 },
-  { label: '2G', value: 15 },
-  { label: '5G', value: 3 },
+  { label: '4G', value: 0.0 },
+  { label: '3G', value: 0.0 },
+  { label: '2G', value: 0.0 },
+  { label: '5G', value: 0.0 },
 ];
 
 const DEFAULT_OPERATOR_DATA = [
-  { label: 'Airtel', value: 42 },
-  { label: 'Telma', value: 33 },
-  { label: 'Orange', value: 21 },
-  { label: 'Gulfsat', value: 4 },
+  { label: 'Airtel', value: 0.0 },
+  { label: 'Telma', value: 0.0 },
+  { label: 'Orange', value: 0.0 },
+  { label: 'Gulfsat', value: 0.0 },
 ];
 
 const DEFAULT_ELECTRICITY_DATA = [
-  { label: 'Secteur (JIRAMA)', value: 58 },
-  { label: 'Solaire', value: 31 },
-  { label: 'Groupe electrogene', value: 11 },
+  { label: 'Secteur (JIRAMA)', value: 0.0 },
+  { label: 'Solaire', value: 0.0 },
+  { label: 'Groupe electrogene', value: 0.0 },
 ];
 
 //format de donnees attendus
@@ -68,17 +68,45 @@ const SIGNAL_COLORS = {
 };
 
 const OPERATOR_COLORS = {
-  Airtel: COLORS.darkGreen,
-  Telma: COLORS.accentGreen,
-  Orange: COLORS.accentGreen,
-  Gulfsat: COLORS.subtitle,
+  Airtel: '#E4002B',   // rouge (identité Airtel)
+  Telma: '#F0D122',    // jaune/orange (identité Telma)
+  Orange: '#FF6600',   // orange (identité Orange)
+  Gulfsat: '#4A6FA5',  // bleu
 };
 
+const OPERATOR_LABELS_ORDER = ['Airtel', 'Telma', 'Orange', 'Gulfsat'];
+
+function withAllOperatorLabels(data) {
+  const valueByLabel = Object.fromEntries(data.map((d) => [d.label, d.value]));
+  return OPERATOR_LABELS_ORDER.map((label) => ({
+    label,
+    value: valueByLabel[label] ?? 0,
+  }));
+}
+
 const ELECTRICITY_COLORS = {
-  'Secteur (JIRAMA)': COLORS.darkGreen,
-  Solaire: COLORS.accentGreen,
-  'Groupe electrogene': COLORS.subtitle,
+  'Secteur (JIRAMA)': '#2E86AB',      // bleu
+  Solaire: '#F2B134',                 // jaune/orange
+  'Groupe electrogene': '#D7263D',    // rouge
+  Mixte: '#6A4C93',                   // violet
+  'Non renseigne / Autre': '#8D99AE', // gris
 };
+
+const ELECTRICITY_LABELS_ORDER = [
+  'Secteur (JIRAMA)',
+  'Solaire',
+  'Groupe electrogene',
+  'Mixte',
+  'Non renseigne / Autre',
+];
+
+function withAllElectricityLabels(data) {
+  const valueByLabel = Object.fromEntries(data.map((d) => [d.label, d.value]));
+  return ELECTRICITY_LABELS_ORDER.map((label) => ({
+    label,
+    value: valueByLabel[label] ?? 0,
+  }));
+}
 
 const FALLBACK_COLOR = COLORS.subtitle;
 
@@ -86,27 +114,118 @@ function colorFor(label, colorMap) {
   return colorMap[label] || FALLBACK_COLOR;
 }
 
+function AnimatedVerticalBar({ value, color }) {
+  const progress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    progress.setValue(0);
+
+    Animated.timing(progress, {
+      toValue: value,
+      duration: 800,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: false, // on anime "height", pas transform/opacity
+    }).start();
+  }, [value]);
+
+  const height = progress.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+  });
+
+  return (
+    <View style={styles.verticalBarTrack}>
+      <Animated.View style={[styles.verticalBarFill, { height, backgroundColor: color }]} />
+    </View>
+  );
+}
+
 //affichage de la page de statistique de qualite de signal sous forme de chart en cercle
-function SignalDonut({ data = DEFAULT_SIGNAL_DATA }) {
-  const size = 140;
-  const strokeWidth = 22;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-
-  let cumulative = 0;
-
+function SignalBarChart({ data = DEFAULT_SIGNAL_DATA }) {
   return (
     <ContainerAnimated dataChanged={JSON.stringify(data)}>
       <View style={styles.chartCard}>
         <Text style={styles.chartTitle}>Qualite de signal</Text>
+        <View style={styles.verticalBarsRow}>
+          {data.map((row) => (
+            <View key={row.label} style={styles.verticalBarColumn}>
+              <Text style={styles.legendValue}>{parseFloat(row.value.toFixed(2))}%</Text>
+              <AnimatedVerticalBar value={row.value} color={colorFor(row.label, SIGNAL_COLORS)} />
+              <Text style={styles.legendLabel}>{row.label}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    </ContainerAnimated>
+  );
+}
+
+//affichage des stats d operateurs
+function OperatorBarChart({ data = DEFAULT_OPERATOR_DATA }) {
+  const fullData = withAllOperatorLabels(data);
+
+  return (
+    <ContainerAnimated dataChanged={JSON.stringify(fullData)}>
+      <View style={styles.chartCard}>
+        <Text style={styles.chartTitle}>Operateur</Text>
+        {fullData.map((row) => (
+          <View key={row.label} style={styles.barRow}>
+            <View style={styles.barTop}>
+              <Text style={styles.legendLabel}>{row.label}</Text>
+              <Text style={styles.legendValue}>{parseFloat(row.value.toFixed(2))}%</Text>
+            </View>
+            <AnimatedProgressBar
+              value={row.value}
+              color={colorFor(row.label, OPERATOR_COLORS)}
+            />
+          </View>
+        ))}
+      </View>
+    </ContainerAnimated>
+  );
+}
+
+//affichage de stats d electricite
+function ElectricityDonut({ data = DEFAULT_ELECTRICITY_DATA }) {
+  const fullData = withAllElectricityLabels(data);
+
+  const size = 160;
+  const strokeWidth = 26;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  const progress = useRef(new Animated.Value(0)).current;
+  const [drawProgress, setDrawProgress] = useState(0);
+
+  useEffect(() => {
+    progress.setValue(0);
+    const listenerId = progress.addListener(({ value }) => setDrawProgress(value));
+
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: 900,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+
+    return () => progress.removeListener(listenerId);
+  }, [JSON.stringify(fullData)]);
+
+  let cumulative = 0;
+
+  return (
+    <ContainerAnimated dataChanged={JSON.stringify(fullData)}>
+      <View style={styles.chartCard}>
+        <Text style={styles.chartTitle}>Electricite</Text>
         <View style={styles.donutRow}>
           <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
-            {data.map((slice) => {
-              const segmentLength = (slice.value / 100) * circumference;
-              const dashArray = `${segmentLength} ${circumference - segmentLength}`;
+            {fullData.map((slice) => {
+              const fullSegment = (slice.value / 100) * circumference;
+              const animatedSegment = fullSegment * drawProgress;
+              const dashArray = `${animatedSegment} ${circumference - animatedSegment}`;
               const dashOffset = -((cumulative / 100) * circumference);
               cumulative += slice.value;
-              const color = colorFor(slice.label, SIGNAL_COLORS);
+              const color = colorFor(slice.label, ELECTRICITY_COLORS);
 
               return (
                 <Circle
@@ -125,9 +244,9 @@ function SignalDonut({ data = DEFAULT_SIGNAL_DATA }) {
           </Svg>
 
           <View style={styles.legend}>
-            {data.map((slice) => (
+            {fullData.map((slice) => (
               <View key={slice.label} style={styles.legendRow}>
-                <View style={[styles.legendDot, { backgroundColor: colorFor(slice.label, SIGNAL_COLORS) }]} />
+                <View style={[styles.legendDot, { backgroundColor: colorFor(slice.label, ELECTRICITY_COLORS) }]} />
                 <Text style={styles.legendLabel}>{slice.label}</Text>
                 <Text style={styles.legendValue}>{parseFloat(slice.value.toFixed(2))}%</Text>
               </View>
@@ -138,58 +257,6 @@ function SignalDonut({ data = DEFAULT_SIGNAL_DATA }) {
     </ContainerAnimated>
   );
 }
-
-//affichage des stats d operateurs
-function OperatorBarChart({ data = DEFAULT_OPERATOR_DATA }) {
-  return (
-    <ContainerAnimated dataChanged={JSON.stringify(data)}>
-      <View style={styles.chartCard}>
-        <Text style={styles.chartTitle}>Operateur</Text>
-        {data.map((row) => (
-          <View key={row.label} style={styles.barRow}>
-            <View style={styles.barTop}>
-              <Text style={styles.legendLabel}>{row.label}</Text>
-              <Text style={styles.legendValue}>{parseFloat(row.value.toFixed(2))}%</Text>
-            </View>
-              <AnimatedProgressBar
-                value={row.value}
-                color={colorFor(row.label, OPERATOR_COLORS)}
-              />
-          </View>
-        ))}
-      </View>
-    </ContainerAnimated>
-  );
-}
-
-//affichage de stats d electricite
-function ElectricityStackedBar({ data = DEFAULT_ELECTRICITY_DATA }) {
-  return (
-    <ContainerAnimated dataChanged={JSON.stringify(data)}>
-      <View style={styles.chartCard}>
-        <Text style={styles.chartTitle}>Electricite</Text>
-        <View style={styles.stackBar}>
-          {data.map((seg) => (
-            <View
-              key={seg.label}
-              style={{ width: `${seg.value}%`, backgroundColor: colorFor(seg.label, ELECTRICITY_COLORS), height: '100%' }}
-            />
-          ))}
-        </View>
-        <View style={styles.legend}>
-          {data.map((seg) => (
-            <View key={seg.label} style={styles.legendRow}>
-              <View style={[styles.legendDot, { backgroundColor: colorFor(seg.label, ELECTRICITY_COLORS) }]} />
-              <Text style={styles.legendLabel}>{seg.label}</Text>
-              <Text style={styles.legendValue}>{parseFloat(seg.value.toFixed(2))}%</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-    </ContainerAnimated>
-  );
-}
-
 //selection des zones a etudier
 export function DropDown() {
   const [openArea, setOpenArea] = useState(false);
@@ -382,14 +449,14 @@ export function DropDown() {
       )}
 
       <View style={styles.bottomStat}>
-        <Text style={styles.bottomStatLabel}>Couverture reseau dde madagascar</Text>
+        <Text style={styles.bottomStatLabel}>Couverture réseau de Madagascar</Text>
         <Text style={styles.bottomStatValue}> 80 %</Text>
       </View>
 
       {showStats && (
         <ScrollView style={styles.statsPanel} contentContainerStyle={styles.statsPanelContent}>
-          {activeTab === 'signal' && <SignalDonut data={signalData} />}
-          {activeTab === 'electricity' && <ElectricityStackedBar data={electricityData} />}
+          {activeTab === 'signal' && <SignalBarChart data={signalData} />}
+          {activeTab === 'electricity' && <ElectricityDonut data={electricityData} />}
           {activeTab === 'operator' && <OperatorBarChart data={operatorData} />}
         </ScrollView>
       )}
@@ -486,7 +553,7 @@ async function resolveCodecomList(area, placeNom) {
 function classifyEnergie(sourceEnergie) {
   if (!sourceEnergie) return 'Non renseigne / Autre';
   if (sourceEnergie === 'ENERGIE SOLAIRE' || sourceEnergie === 'ENERGIE SOLAIRE + EOLIENE') return 'Solaire';
-  if (sourceEnergie === 'JIRAMA') return 'JIRAMA';
+  if (sourceEnergie === 'JIRAMA') return 'Secteur (JIRAMA)';
   if (['GE', 'GE PROVISOIRE', 'SOLDIÈSE', 'SOLDIES'].includes(sourceEnergie)) return 'Groupe electrogene';
   if (sourceEnergie === 'MIXTE' || sourceEnergie.includes('+')) return 'Mixte';
   return 'Non renseigne / Autre';
@@ -846,5 +913,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#8A3B1E',
     textAlign: 'center',
+  },
+
+  verticalBarsRow: {
+  flexDirection: 'row',
+  alignItems: 'flex-end',
+  justifyContent: 'space-around',
+  height: 160,
+  },
+
+  verticalBarColumn: {
+    alignItems: 'center',
+    gap: 6,
+    height: '100%',
+    justifyContent: 'flex-end',
+  },
+
+  verticalBarTrack: {
+    width: 28,
+    height: 100,
+    borderRadius: 6,
+    backgroundColor: COLORS.background,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+  },
+
+  verticalBarFill: {
+    width: '100%',
+    borderRadius: 6,
   },
 });
