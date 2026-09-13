@@ -5,6 +5,7 @@ Application mobile et web construite avec Expo Router.
 ## Démarrer
 
 ```bash
+npm install @supabase/supabase-js
 npm install
 npm start
 ```
