@@ -1,9 +1,10 @@
 import { Camera, Map, Marker } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import React, { useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomNavigation } from '../components/bottom-navigation';
+import Information from '../components/information';
 import MapSearchBar from '../components/mapSearchBar';
 
 const STADIA_API_KEY = process.env.EXPO_PUBLIC_STADIA_API_KEY;
@@ -23,6 +24,7 @@ export default function StatsScreen() {
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [placeToSearch, setPlaceToSearch] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+  const [nodePressed, setNodePressed] = React.useState(false);
 
   const [currentUserLocation, setCurrentUserLocation] = React.useState<
     [lng: number, lat: number] | undefined
@@ -123,7 +125,7 @@ export default function StatsScreen() {
           >
             <Camera ref={cameraRef} />
             {currentUserLocation && (
-              <Marker id="user" lngLat={currentUserLocation}>
+              <Marker id="user" lngLat={currentUserLocation} onPress={() => setNodePressed(true)}>
                 <View style={styles.userMarker} />
               </Marker>
             )}
@@ -141,13 +143,22 @@ export default function StatsScreen() {
                 backgroundColor: pressed ? 'rgb(210, 230, 255)' : 'white',
                 position: 'absolute',
                 bottom: '10%',
-                right: '10%',
+                right: '5%',
+                borderRadius: 10,
+                width: 30,
+                height: 30,
+                flex: 1,
+                justifyContent: 'center',
+                alignItems: 'center'
               },
             ]}
             onPress={focusOnUser}
           >
-            <Text style={styles.focusText}>Focus</Text>
+            <Image source={require('../../assets/images/focus.png')} />
           </Pressable>
+          {
+            nodePressed ? <Information setNodePressed={setNodePressed} /> : undefined
+          }
         </View>
 
         <BottomNavigation activeTab="map" />
@@ -169,12 +180,6 @@ const styles = StyleSheet.create({
   map: {
     width: '100%',
     height: '90%',
-  },
-  focusText: {
-    borderWidth: 1,
-    padding: 7,
-    fontSize: 20,
-    borderRadius: 5,
   },
   userMarker: {
     width: 10,
