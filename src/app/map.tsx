@@ -1,9 +1,11 @@
 import { Camera, Map, Marker } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import React, { useRef } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomNavigation } from '../components/bottom-navigation';
+import MapSearchBar from '../components/mapSearchBar';
+
 
 const COLORS = {
   dark: '#1B3A2B',
@@ -18,13 +20,14 @@ const COLORS = {
 
 
 export default function StatsScreen() {
-  const [text, onChangeText] = React.useState('');
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [currentUserLocation, setCurrentUserLocation] = React.useState<
     [lng: number, lat: number] | undefined
   >(undefined);
-  const mapRef = useRef(null);
-  const cameraRef = useRef(null);
+  const mapRef = useRef<any>(null);
+  const cameraRef = useRef<any>(null);
+  const [placeToSearch, setPlaceToSearch] = React.useState('');
+
 
   async function getLocation() {
     let location = await Location.getCurrentPositionAsync({});
@@ -49,6 +52,26 @@ export default function StatsScreen() {
     getLocation();
   }
 
+  requestLocation();
+
+
+  async function searchForPlace() {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(placeToSearch)}&format=jsonv2&limit=1`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'ConnecteoAPP/1.0 (fiaroiarilanjaramahaliarivo@gmail.com)',
+      },
+    });
+    const data = await response.json();
+    if (data && data.length > 0) {
+      const place = data[0];
+      const pLat = parseFloat(place.lat);
+      const pLng = parseFloat(place.lon);
+      cameraRef.current?.flyTo({ center: [pLng, pLat], zoom: 10, duration: 12000 });
+    }
+  }
+
+
   return (
     <View style={styles.screen}>
       <SafeAreaView style={styles.container}>
@@ -67,12 +90,10 @@ export default function StatsScreen() {
               </Marker>
             )}
           </Map>
-          <TextInput
-            value={text}
-            onChangeText={onChangeText}
-            style={styles.searchBar}
-            placeholder="Search"
-            placeholderTextColor="#1B1B1B"
+          <MapSearchBar
+            placeToSearch={placeToSearch}
+            searchForPlace={searchForPlace}
+            setPlaceToSearch={setPlaceToSearch}
           />
           <Pressable
             style={({ pressed }) => [
@@ -129,17 +150,6 @@ const styles = StyleSheet.create({
   statIcon: { width: 30, alignItems: 'center', marginRight: 12 },
   statValue: { fontSize: 18, fontWeight: '700', color: COLORS.textDark },
   statLabel: { fontSize: 13, color: COLORS.dark, marginTop: 2 },
-  searchBar: {
-    position: 'absolute',
-    top: 70,
-    height: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    margin: 5,
-    borderWidth: 1,
-    borderRadius: 20,
-    padding: 10,
-    width: '70%',
-  },
   map: {
     width: '100%',
     height: '90%'
