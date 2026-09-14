@@ -23,7 +23,13 @@
     },
     "plugins": [
       "expo-router",
-      "@maplibre/maplibre-react-native"
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-location",
+        {
+          "isAndroidBackgroundLocationEnabled": "true"
+        }
+      ]
     ],
     "ios": {
       "bundleIdentifier": "com.fiaroiarilanja.CONNECTEO"

@@ -49,7 +49,6 @@ export default function StatsScreen() {
     getLocation();
   }
 
-
   return (
     <View style={styles.screen}>
       <SafeAreaView style={styles.container}>
