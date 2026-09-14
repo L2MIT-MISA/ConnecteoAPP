@@ -13,8 +13,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSession } from '../auth/session';
+import { useTheme, useThemedStyles, type ThemeColors } from '../theme/ThemeContext';
 
-export default function LoginScreen() {
+export default function RegisterScreen() {
+  const styles = useThemedStyles(createStyles);
   const { signIn } = useSession();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -31,11 +33,13 @@ export default function LoginScreen() {
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
           style={styles.keyboardAvoidingView}
-          behavior={Platform.select({ ios: 'padding', default: undefined })}>
+          behavior={Platform.select({ ios: 'padding', default: undefined })}
+        >
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}>
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.form}>
               <View style={styles.logo}>
                 <Text style={styles.logoMark}>✣</Text>
@@ -85,9 +89,9 @@ export default function LoginScreen() {
               </Pressable>
 
               <Link href="/login" asChild>
-              <Text style={styles.loginPrompt}>
-                Déjà inscrit ? <Text style={styles.loginLink}>Se connecter</Text>
-              </Text>
+                <Text style={styles.loginPrompt}>
+                  Déjà inscrit ? <Text style={styles.loginLink}>Se connecter</Text>
+                </Text>
               </Link>
             </View>
           </ScrollView>
@@ -108,65 +112,74 @@ type FormFieldProps = {
 };
 
 function FormField({ label, ...inputProps }: FormFieldProps) {
+  const styles = useThemedStyles(createStyles);
+  const { colors } = useTheme();
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
         {...inputProps}
         autoCapitalize={inputProps.keyboardType === 'email-address' ? 'none' : 'words'}
-        placeholderTextColor="#9198a5"
+        placeholderTextColor={colors.placeholder}
         style={styles.input}
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, alignItems: 'center', backgroundColor: '#f4f1ea' },
-  safeArea: { width: '100%', maxWidth: 430, flex: 1 },
-  keyboardAvoidingView: { flex: 1 },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 50,
-    paddingVertical: 28,
-  },
-  form: { gap: 22 },
-  logo: {
-    width: 44,
-    height: 44,
-    alignSelf: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    backgroundColor: '#16452d',
-  },
-  logoMark: { color: '#ffffff', fontSize: 25, lineHeight: 27 },
-  heading: { alignItems: 'center', gap: 4, marginTop: -4 },
-  title: { color: '#102c1c', fontSize: 19, fontWeight: '700' },
-  subtitle: { color: '#737b8d', fontSize: 13 },
-  fields: { gap: 13 },
-  field: { gap: 6 },
-  label: { color: '#6f7788', fontSize: 12, textAlign: 'center' },
-  input: {
-    height: 42,
-    borderWidth: 1,
-    borderColor: '#dfe1e5',
-    borderRadius: 10,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 14,
-    color: '#18212d',
-    fontSize: 14,
-  },
-  submitButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 45,
-    borderRadius: 10,
-    backgroundColor: '#16452d',
-    marginTop: -1,
-  },
-  submitText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
-  loginPrompt: { color: '#737b8d', fontSize: 12, textAlign: 'center', marginTop: -6 },
-  loginLink: { color: '#16452d', fontWeight: '700' },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    screen: { flex: 1, alignItems: 'center', backgroundColor: c.background },
+    safeArea: { width: '100%', maxWidth: 430, flex: 1 },
+    keyboardAvoidingView: { flex: 1 },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 50,
+      paddingVertical: 28,
+    },
+    form: { gap: 22 },
+    logo: {
+      width: 44,
+      height: 44,
+      alignSelf: 'center',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 14,
+      backgroundColor: c.primaryDark,
+    },
+    logoMark: { color: c.textLight, fontSize: 25, lineHeight: 27 },
+    heading: { alignItems: 'center', gap: 4, marginTop: -4 },
+    title: { color: c.textDark, fontSize: 19, fontWeight: '700' },
+    subtitle: { color: c.textMuted, fontSize: 13 },
+    fields: { gap: 13 },
+    field: { gap: 6 },
+    label: { color: c.textMuted, fontSize: 12, textAlign: 'center' },
+    input: {
+      height: 42,
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 10,
+      backgroundColor: c.inputBg,
+      paddingHorizontal: 14,
+      color: c.textDark,
+      fontSize: 14,
+    },
+    submitButton: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 45,
+      borderRadius: 10,
+      backgroundColor: c.primaryDark,
+      marginTop: -1,
+    },
+    submitText: { color: c.textLight, fontSize: 13, fontWeight: '700' },
+    loginPrompt: {
+      color: c.textMuted,
+      fontSize: 12,
+      textAlign: 'center',
+      marginTop: -6,
+    },
+    loginLink: { color: c.primary, fontWeight: '700' },
+  });
+}
