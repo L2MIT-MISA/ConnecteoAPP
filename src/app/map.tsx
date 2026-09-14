@@ -38,7 +38,6 @@ export default function StatsScreen() {
       stateText = JSON.stringify(location);
       const lat = location.coords.latitude;
       const lng = location.coords.longitude;
-      cameraRef.current?.flyTo({ center: [lng, lat], duration: 12000, zoom: 16 });
       setCurrentUserLocation([lng, lat])
     }
   }
@@ -52,6 +51,11 @@ export default function StatsScreen() {
     getLocation();
   }
 
+  function focusOnUser() {
+    getLocation();
+    cameraRef.current?.flyTo({ center: currentUserLocation, duration: 12000, zoom: 16 });
+  }
+
   requestLocation();
 
 
@@ -59,7 +63,7 @@ export default function StatsScreen() {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(placeToSearch)}&format=jsonv2&limit=1`;
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'ConnecteoAPP/1.0 (fiaroiarilanjaramahaliarivo@gmail.com)',
+        'User-Agent': 'ConnecteoAPP/1.0',
       },
     });
     const data = await response.json();
@@ -104,7 +108,7 @@ export default function StatsScreen() {
                 right: '10%'
               }
             ]}
-            onPress={getLocation}
+            onPress={focusOnUser}
           >
             <Text style={styles.focusText}>Focus</Text>
           </Pressable>
