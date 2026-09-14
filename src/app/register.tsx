@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSession } from '../auth/session';
+import { useTheme, useThemedStyles, type ThemeColors } from '../theme/ThemeContext';
 
 export default function RegisterScreen() {
   const { signUp } = useSession();
@@ -76,11 +77,13 @@ export default function RegisterScreen() {
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
           style={styles.keyboardAvoidingView}
-          behavior={Platform.select({ ios: 'padding', default: undefined })}>
+          behavior={Platform.select({ ios: 'padding', default: undefined })}
+        >
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}>
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.form}>
               <View style={styles.logo}>
                 <Text style={styles.logoMark}>✣</Text>
@@ -145,9 +148,9 @@ export default function RegisterScreen() {
               </Pressable>
 
               <Link href="/login" asChild>
-              <Text style={styles.loginPrompt}>
-                Déjà inscrit ? <Text style={styles.loginLink}>Se connecter</Text>
-              </Text>
+                <Text style={styles.loginPrompt}>
+                  Déjà inscrit ? <Text style={styles.loginLink}>Se connecter</Text>
+                </Text>
               </Link>
             </View>
           </ScrollView>
@@ -168,13 +171,15 @@ type FormFieldProps = {
 };
 
 function FormField({ label, ...inputProps }: FormFieldProps) {
+  const styles = useThemedStyles(createStyles);
+  const { colors } = useTheme();
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
         {...inputProps}
         autoCapitalize={inputProps.keyboardType === 'email-address' ? 'none' : 'words'}
-        placeholderTextColor="#9198a5"
+        placeholderTextColor={colors.placeholder}
         style={styles.input}
       />
     </View>

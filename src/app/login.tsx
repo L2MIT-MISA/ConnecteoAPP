@@ -10,10 +10,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '../theme/ThemeContext';
 
 import { useSession } from '../auth/session';
+import { useThemedStyles, type ThemeColors } from '../theme/ThemeContext';
 
 export default function LoginScreen() {
+  const styles = useThemedStyles(createStyles);
   const { signIn } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -50,7 +53,8 @@ export default function LoginScreen() {
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
           style={styles.keyboardAvoidingView}
-          behavior={Platform.select({ ios: 'padding', default: undefined })}>
+          behavior={Platform.select({ ios: 'padding', default: undefined })}
+        >
           <View style={styles.content}>
             <View style={styles.logo}>
               <Text style={styles.logoMark}>✣</Text>
@@ -116,6 +120,8 @@ type FormFieldProps = {
 };
 
 function FormField({ label, ...inputProps }: FormFieldProps) {
+  const styles = useThemedStyles(createStyles);
+  const { colors } = useTheme();
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -123,7 +129,7 @@ function FormField({ label, ...inputProps }: FormFieldProps) {
         {...inputProps}
         autoCapitalize="none"
         autoCorrect={false}
-        placeholderTextColor="#9198a5"
+        placeholderTextColor={colors.placeholder}
         style={styles.input}
       />
     </View>

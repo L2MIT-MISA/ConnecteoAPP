@@ -56,7 +56,8 @@ export default function AccountScreen() {
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
           style={styles.content}
-          behavior={Platform.select({ ios: 'padding', default: undefined })}>
+          behavior={Platform.select({ ios: 'padding', default: undefined })}
+        >
           <Text style={styles.title}>Mon compte</Text>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
@@ -68,7 +69,12 @@ export default function AccountScreen() {
           </Pressable>
 
           <View style={styles.form}>
-            <AccountField label="Nom complet" value={name} onChangeText={setName} textContentType="name" />
+            <AccountField
+              label="Nom complet"
+              value={name}
+              onChangeText={setName}
+              textContentType="name"
+            />
             <AccountField
               label="E-mail"
               value={email}
@@ -77,7 +83,12 @@ export default function AccountScreen() {
               textContentType="emailAddress"
               editable={false}
             />
-            <AccountField label="Téléphone" value={phone} onChangeText={setPhone} textContentType="telephoneNumber" />
+            <AccountField
+              label="Téléphone"
+              value={phone}
+              onChangeText={setPhone}
+              textContentType="telephoneNumber"
+            />
           </View>
 
           {erreur && <Text style={styles.errorText}>{erreur}</Text>}
