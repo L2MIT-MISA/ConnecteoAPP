@@ -7,7 +7,7 @@ Application mobile et web construite avec Expo Router.
 ```bash
 npm install @supabase/supabase-js
 npm install
-npm start
+npx expo run:android
 ```
 
 L'écran d'accueil se trouve dans `src/app/index.tsx`.
