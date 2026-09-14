@@ -1,5 +1,6 @@
-import { Map } from '@maplibre/maplibre-react-native';
-import React from 'react';
+import { Camera, Map, Marker } from '@maplibre/maplibre-react-native';
+import * as Location from 'expo-location';
+import React, { useRef } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomNavigation } from '../components/bottom-navigation';
@@ -18,13 +19,57 @@ const COLORS = {
 
 export default function StatsScreen() {
   const [text, onChangeText] = React.useState('');
+  const [location, setLocation] = React.useState<Location.LocationObject | null>(null);
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+  const [currentUserLocation, setCurrentUserLocation] = React.useState<
+    [lng: number, lat: number] | undefined
+  >(undefined);
+  const mapRef = useRef(null);
+  const cameraRef = useRef(null);
+
+  async function getLocation() {
+    let location = await Location.getCurrentPositionAsync({});
+    setLocation(location);
+    let stateText = 'Waiting...';
+    if (errorMsg) {
+      stateText = errorMsg;
+    } else if (location) {
+      stateText = JSON.stringify(location);
+      const lat = location.coords.latitude;
+      const lng = location.coords.longitude;
+      cameraRef.current?.flyTo({ center: [lng, lat], duration: 12000, zoom: 16 });
+      setCurrentUserLocation([lng, lat])
+    }
+  }
+
+  async function requestLocation() {
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      setErrorMsg('Permission to access location was denied');
+      return;
+    }
+    getLocation();
+  }
+
 
   return (
     <View style={styles.screen}>
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Map</Text>
-          <Map mapStyle="https://tiles.openfreemap.org/styles/liberty" style={styles.map} />
+          <Map ref={mapRef} mapStyle="https://tiles.openfreemap.org/styles/liberty" style={styles.map} >
+            <Camera
+              ref={cameraRef}
+            />
+            {currentUserLocation && (
+              <Marker
+                id='user'
+                lngLat={currentUserLocation}
+              >
+                <View style={styles.userMarker} />
+              </Marker>
+            )}
+          </Map>
           <TextInput
             value={text}
             onChangeText={onChangeText}
@@ -32,13 +77,23 @@ export default function StatsScreen() {
             placeholder="Search"
             placeholderTextColor="#1B1B1B"
           />
-          <Pressable style={styles.focus}>
+          <Pressable
+            style={({ pressed }) => [
+              {
+                backgroundColor: pressed ? 'rgb(210, 230, 255)' : 'white',
+                position: 'absolute',
+                bottom: '10%',
+                right: '10%'
+              }
+            ]}
+            onPress={getLocation}
+          >
             <Text style={styles.focusText}>Focus</Text>
           </Pressable>
         </View>
         <BottomNavigation activeTab="map" />
-      </SafeAreaView>
-    </View>
+      </SafeAreaView >
+    </View >
   );
 }
 
@@ -92,15 +147,16 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '90%'
   },
-  focus: {
-    position: 'absolute',
-    bottom: '10%',
-    right: '10%'
-  },
   focusText: {
     borderWidth: 1,
     padding: 7,
     fontSize: 20,
     borderRadius: 5
+  },
+  userMarker: {
+    width: 10,
+    height: 10,
+    backgroundColor: 'red',
+    borderRadius: 15
   }
 });
