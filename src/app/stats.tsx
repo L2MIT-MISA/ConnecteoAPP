@@ -27,7 +27,10 @@ import {
   type ThemeColors,
 } from '../theme/ThemeContext';
 
-// --- Données par défaut ---
+// ---------------------------------------------------------------------------
+// DONNÉES PAR DÉFAUT
+// ---------------------------------------------------------------------------
+
 const DEFAULT_SIGNAL_DATA = [
   { label: '4G', value: 0.0 },
   { label: '3G', value: 0.0 },
@@ -50,7 +53,10 @@ const DEFAULT_ELECTRICITY_DATA = [
 
 const DEFAULT_AREAS = ['Tout', 'Province', 'Region', 'District', 'Commune', 'Fokontany'];
 
-// --- Couleurs d'identité (fixes, ne dépendent pas du thème) ---
+// ---------------------------------------------------------------------------
+// COULEURS D'IDENTITÉ (fixes, ne dépendent pas du thème)
+// ---------------------------------------------------------------------------
+
 const SIGNAL_COLORS: Record<string, string> = {
   '4G': '#1a3d27',
   '3G': '#2e6b46',
@@ -83,6 +89,10 @@ const ELECTRICITY_LABELS_ORDER = [
   'Non renseigne / Autre',
 ];
 
+// ---------------------------------------------------------------------------
+// HELPERS
+// ---------------------------------------------------------------------------
+
 function withAllOperatorLabels(data: { label: string; value: number }[]) {
   const valueByLabel = Object.fromEntries(data.map((d) => [d.label, d.value]));
   return OPERATOR_LABELS_ORDER.map((label) => ({
@@ -107,7 +117,9 @@ function colorFor(
   return colorMap[label] || colors.subtitle;
 }
 
-// --- Composants d'animation ---
+// ---------------------------------------------------------------------------
+// COMPOSANTS D'ANIMATION
+// ---------------------------------------------------------------------------
 
 function AnimatedVerticalBar({ value, color }: { value: number; color: string }) {
   const styles = useThemedStyles(createStyles);
@@ -130,7 +142,9 @@ function AnimatedVerticalBar({ value, color }: { value: number; color: string })
 
   return (
     <View style={styles.verticalBarTrack}>
-      <Animated.View style={[styles.verticalBarFill, { height, backgroundColor: color }]} />
+      <Animated.View
+        style={[styles.verticalBarFill, { height, backgroundColor: color }]}
+      />
     </View>
   );
 }
@@ -156,9 +170,7 @@ function AnimatedProgressBar({ value, color }: { value: number; color: string })
 
   return (
     <View style={styles.barTrack}>
-      <Animated.View
-        style={[styles.barFill, { width, backgroundColor: color }]}
-      />
+      <Animated.View style={[styles.barFill, { width, backgroundColor: color }]} />
     </View>
   );
 }
@@ -187,7 +199,60 @@ function ContainerAnimated({
   return <Animated.View style={{ opacity }}>{children}</Animated.View>;
 }
 
-// --- Graphiques ---
+// ---------------------------------------------------------------------------
+// BOUTON D'ONGLET ANIMÉ (pill) — même style que BottomNavigation
+// ---------------------------------------------------------------------------
+
+const TabButton: React.FC<{
+  active: boolean;
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+  accessibilityLabel: string;
+}> = ({ active, icon, onPress, accessibilityLabel }) => {
+  const styles = useThemedStyles(createStyles);
+  const { colors } = useTheme();
+
+  // Petit "pop" quand le bouton devient actif
+  const scale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: active ? 1.08 : 1,
+      friction: 6,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  }, [active, scale]);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={accessibilityLabel}
+      style={({ pressed }) => [{ opacity: pressed ? 0.75 : 1 }]}
+    >
+      <Animated.View
+        style={[
+          styles.threeButton,
+          active && styles.threeButtonActive,
+          { transform: [{ scale }] },
+        ]}
+      >
+        <Ionicons
+          name={icon}
+          size={40}
+          color={active ? colors.textLight : colors.textDark}
+        />
+      </Animated.View>
+    </Pressable>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// GRAPHIQUES
+// ---------------------------------------------------------------------------
 
 function SignalBarChart({ data = DEFAULT_SIGNAL_DATA }) {
   const styles = useThemedStyles(createStyles);
@@ -259,7 +324,9 @@ function ElectricityDonut({ data = DEFAULT_ELECTRICITY_DATA }) {
 
   useEffect(() => {
     progress.setValue(0);
-    const listenerId = progress.addListener(({ value }) => setDrawProgress(value));
+    const listenerId = progress.addListener(({ value }) =>
+      setDrawProgress(value),
+    );
     Animated.timing(progress, {
       toValue: 1,
       duration: 900,
@@ -276,11 +343,17 @@ function ElectricityDonut({ data = DEFAULT_ELECTRICITY_DATA }) {
       <View style={styles.chartCard}>
         <Text style={styles.chartTitle}>Électricité</Text>
         <View style={styles.donutRow}>
-          <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
+          <Svg
+            width={size}
+            height={size}
+            style={{ transform: [{ rotate: '-90deg' }] }}
+          >
             {fullData.map((slice) => {
               const fullSegment = (slice.value / 100) * circumference;
               const animatedSegment = fullSegment * drawProgress;
-              const dashArray = `${animatedSegment} ${circumference - animatedSegment}`;
+              const dashArray = `${animatedSegment} ${
+                circumference - animatedSegment
+              }`;
               const dashOffset = -((cumulative / 100) * circumference);
               cumulative += slice.value;
               const color = colorFor(slice.label, ELECTRICITY_COLORS, colors);
@@ -307,7 +380,13 @@ function ElectricityDonut({ data = DEFAULT_ELECTRICITY_DATA }) {
                 <View
                   style={[
                     styles.legendDot,
-                    { backgroundColor: colorFor(slice.label, ELECTRICITY_COLORS, colors) },
+                    {
+                      backgroundColor: colorFor(
+                        slice.label,
+                        ELECTRICITY_COLORS,
+                        colors,
+                      ),
+                    },
                   ]}
                 />
                 <Text style={styles.legendLabel}>{slice.label}</Text>
@@ -323,7 +402,9 @@ function ElectricityDonut({ data = DEFAULT_ELECTRICITY_DATA }) {
   );
 }
 
-// --- DropDown principal ---
+// ---------------------------------------------------------------------------
+// DROPDOWN PRINCIPAL
+// ---------------------------------------------------------------------------
 
 export function DropDown() {
   const styles = useThemedStyles(createStyles);
@@ -346,7 +427,9 @@ export function DropDown() {
 
   const [signalData, setSignalData] = useState(DEFAULT_SIGNAL_DATA);
   const [operatorData, setOperatorData] = useState(DEFAULT_OPERATOR_DATA);
-  const [electricityData, setElectricityData] = useState(DEFAULT_ELECTRICITY_DATA);
+  const [electricityData, setElectricityData] = useState(
+    DEFAULT_ELECTRICITY_DATA,
+  );
   const [placesError, setPlacesError] = useState<string | null>(null);
 
   const [nationalCoverage, setNationalCoverage] = useState<number | null>(null);
@@ -361,15 +444,24 @@ export function DropDown() {
         if (!selectedPlace || selectedPlace === 'Tout') {
           ({ signal, operator, electricity, total } = await fetchStatsGlobal());
         } else {
-          const codecomList = await resolveCodecomList(selectedArea, selectedPlace);
-          ({ signal, operator, electricity, total } = await fetchStatsForZone(codecomList));
+          const codecomList = await resolveCodecomList(
+            selectedArea,
+            selectedPlace,
+          );
+          ({ signal, operator, electricity, total } = await fetchStatsForZone(
+            codecomList,
+          ));
         }
 
         if (cancelled) return;
 
         setSignalData(signal.length > 0 ? signal : DEFAULT_SIGNAL_DATA);
-        setOperatorData(operator.length > 0 ? operator : DEFAULT_OPERATOR_DATA);
-        setElectricityData(electricity.length > 0 ? electricity : DEFAULT_ELECTRICITY_DATA);
+        setOperatorData(
+          operator.length > 0 ? operator : DEFAULT_OPERATOR_DATA,
+        );
+        setElectricityData(
+          electricity.length > 0 ? electricity : DEFAULT_ELECTRICITY_DATA,
+        );
         setTotalPylones(total ?? 0);
       } catch (err: any) {
         console.error('Erreur stats pylone:', err?.message);
@@ -389,7 +481,8 @@ export function DropDown() {
       try {
         const { signal } = await fetchStatsGlobal();
         if (cancelled || signal.length === 0) return;
-        const moyenne = signal.reduce((sum, s) => sum + s.value, 0) / signal.length;
+        const moyenne =
+          signal.reduce((sum, s) => sum + s.value, 0) / signal.length;
         setNationalCoverage(moyenne);
       } catch (err: any) {
         console.error('Erreur couverture nationale:', err?.message);
@@ -453,7 +546,10 @@ export function DropDown() {
 
       <View style={styles.dropdownRow}>
         <View style={styles.dropdownWrapper}>
-          <Pressable style={styles.button} onPress={() => setOpenArea(!openArea)}>
+          <Pressable
+            style={styles.button}
+            onPress={() => setOpenArea(!openArea)}
+          >
             <Text style={styles.buttonText}>{selectedArea}</Text>
             <FontAwesome
               name={openArea ? 'chevron-up' : 'chevron-down'}
@@ -481,7 +577,10 @@ export function DropDown() {
         </View>
 
         <View style={styles.dropdownWrapper}>
-          <Pressable style={styles.button} onPress={() => setOpenPlace(!openPlace)}>
+          <Pressable
+            style={styles.button}
+            onPress={() => setOpenPlace(!openPlace)}
+          >
             <Text style={styles.buttonText}>{selectedPlace}</Text>
             <FontAwesome
               name={openPlace ? 'chevron-up' : 'chevron-down'}
@@ -550,7 +649,9 @@ export function DropDown() {
       )}
 
       <View style={styles.bottomStat}>
-        <Text style={styles.bottomStatLabel}>Couverture réseau de Madagascar</Text>
+        <Text style={styles.bottomStatLabel}>
+          Couverture réseau de Madagascar
+        </Text>
         <Text style={styles.bottomStatValue}>
           {nationalCoverage !== null ? ` ${parseFloat(nationalCoverage.toFixed(1))} %` : ' ... '}
         </Text>
@@ -559,25 +660,41 @@ export function DropDown() {
       {showStats && (
         <ScrollView style={styles.statsPanel} contentContainerStyle={styles.statsPanelContent}>
           {activeTab === 'signal' && <SignalBarChart data={signalData} />}
-          {activeTab === 'electricity' && <ElectricityDonut data={electricityData} />}
+          {activeTab === 'electricity' && (
+            <ElectricityDonut data={electricityData} />
+          )}
           {activeTab === 'operator' && <OperatorBarChart data={operatorData} />}
         </ScrollView>
       )}
 
+      {/*  3 boutons d'onglet avec effet pill (actif en vert) */}
       <View style={styles.threeButtonRow}>
-        <Pressable style={styles.threeButton} onPress={() => openStats('signal')}>
-          <Ionicons name="cellular" size={40} color={colors.textDark} />
-        </Pressable>
-        <Pressable style={styles.threeButton} onPress={() => openStats('electricity')}>
-          <Ionicons name="flash" size={40} color={colors.textDark} />
-        </Pressable>
-        <Pressable style={styles.threeButton} onPress={() => openStats('operator')}>
-          <Ionicons name="business" size={40} color={colors.textDark} />
-        </Pressable>
+        <TabButton
+          active={activeTab === 'signal'}
+          icon="cellular"
+          onPress={() => openStats('signal')}
+          accessibilityLabel="Statistiques de signal"
+        />
+        <TabButton
+          active={activeTab === 'electricity'}
+          icon="flash"
+          onPress={() => openStats('electricity')}
+          accessibilityLabel="Statistiques d'électricité"
+        />
+        <TabButton
+          active={activeTab === 'operator'}
+          icon="business"
+          onPress={() => openStats('operator')}
+          accessibilityLabel="Statistiques d'opérateurs"
+        />
       </View>
     </>
   );
 }
+
+// ---------------------------------------------------------------------------
+// ÉCRAN PRINCIPAL
+// ---------------------------------------------------------------------------
 
 export default function StatsScreen() {
   const styles = useThemedStyles(createStyles);
@@ -592,7 +709,9 @@ export default function StatsScreen() {
   );
 }
 
-// --- Styles dépendants du thème ---
+// ---------------------------------------------------------------------------
+// STYLES
+// ---------------------------------------------------------------------------
 
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
@@ -643,6 +762,8 @@ function createStyles(c: ThemeColors) {
       gap: 20,
       justifyContent: 'space-between',
       alignItems: 'center',
+      borderWidth: 1,
+      borderColor: c.border,
     },
 
     buttonText: { color: c.textDark },
@@ -661,6 +782,8 @@ function createStyles(c: ThemeColors) {
       gap: 20,
       zIndex: 20,
       elevation: 6,
+      borderWidth: 1,
+      borderColor: c.border,
     },
 
     optionHovered: {
@@ -718,20 +841,42 @@ function createStyles(c: ThemeColors) {
       paddingBottom: 20,
     },
 
+    // --- Boutons d'onglet (pill) ---
     threeButtonRow: {
       flexDirection: 'row',
       position: 'absolute',
-      gap: 10,
+      gap: 14,
       bottom: 200,
       right: 20,
       left: 20,
       justifyContent: 'center',
+      alignItems: 'center',
     },
 
     threeButton: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
       backgroundColor: c.cardBg,
-      padding: 10,
-      borderRadius: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: c.border,
+      // Ombre douce (état inactif)
+      shadowColor: '#000',
+      shadowOpacity: 0.08,
+      shadowOffset: { width: 0, height: 3 },
+      shadowRadius: 6,
+      elevation: 3,
+    },
+
+    threeButtonActive: {
+      backgroundColor: c.primaryDark,
+      borderColor: c.primaryDark,
+      // Ombre renforcée (état actif)
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      elevation: 6,
     },
 
     chartCard: {
@@ -739,6 +884,8 @@ function createStyles(c: ThemeColors) {
       borderRadius: 20,
       padding: 16,
       gap: 35,
+      borderWidth: 1,
+      borderColor: c.border,
     },
 
     donutRow: {
@@ -747,7 +894,10 @@ function createStyles(c: ThemeColors) {
       gap: 20,
     },
 
-    legend: { flex: 1, gap: 8 },
+    legend: {
+      flex: 1,
+      gap: 8,
+    },
 
     legendRow: {
       flexDirection: 'row',
@@ -773,7 +923,9 @@ function createStyles(c: ThemeColors) {
       color: c.textDark,
     },
 
-    barRow: { gap: 6 },
+    barRow: {
+      gap: 6,
+    },
 
     barTop: {
       flexDirection: 'row',
@@ -790,13 +942,6 @@ function createStyles(c: ThemeColors) {
     barFill: {
       height: '100%',
       borderRadius: 4,
-    },
-
-    stackBar: {
-      flexDirection: 'row',
-      height: 16,
-      borderRadius: 8,
-      overflow: 'hidden',
     },
 
     chartTitle: {
