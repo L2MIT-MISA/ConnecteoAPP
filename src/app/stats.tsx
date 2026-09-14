@@ -1,9 +1,17 @@
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Animated,
+  Easing,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
-import { BottomNavigation } from '../components/bottom-navigation';
 import {
   AREA_TABLE_MAP,
   FALLBACK_PLACES_BY_AREA,
@@ -12,20 +20,14 @@ import {
   fetchStatsGlobal,
   resolveCodecomList,
 } from '../api/stats-api';
+import { BottomNavigation } from '../components/bottom-navigation';
+import {
+  useTheme,
+  useThemedStyles,
+  type ThemeColors,
+} from '../theme/ThemeContext';
 
-const COLORS = {
-  dark: '#1B3A2B',
-  darkGreen: '#1F4A32',
-  accentGreen: '#2E6B4A',
-  background: '#EFEBE4',
-  textDark: '#1B1B1B',
-  textLight: '#FFFFFF',
-  subtitle: '#A9C2B3',
-  border: '#E3DED5',
-  cardBg: '#FFFFFF',
-};
-
-// donnees par defaut et format a suivre pour les requetes plus tard
+// --- Données par défaut ---
 const DEFAULT_SIGNAL_DATA = [
   { label: '4G', value: 0.0 },
   { label: '3G', value: 0.0 },
@@ -46,39 +48,31 @@ const DEFAULT_ELECTRICITY_DATA = [
   { label: 'Groupe electrogene', value: 0.0 },
 ];
 
-//format de donnees attendus
 const DEFAULT_AREAS = ['Tout', 'Province', 'Region', 'District', 'Commune', 'Fokontany'];
 
-const SIGNAL_COLORS = {
+// --- Couleurs d'identité (fixes, ne dépendent pas du thème) ---
+const SIGNAL_COLORS: Record<string, string> = {
   '4G': '#1a3d27',
   '3G': '#2e6b46',
   '2G': '#7fa78c',
   '5G': '#d98a3d',
 };
 
-const OPERATOR_COLORS = {
-  Airtel: '#E4002B',   // rouge (identité Airtel)
-  Telma: '#F0D122',    // jaune/orange (identité Telma)
-  Orange: '#FF6600',   // orange (identité Orange)
-  Gulfsat: '#4A6FA5',  // bleu
+const OPERATOR_COLORS: Record<string, string> = {
+  Airtel: '#E4002B',
+  Telma: '#F0D122',
+  Orange: '#FF6600',
+  Gulfsat: '#4A6FA5',
 };
 
 const OPERATOR_LABELS_ORDER = ['Airtel', 'Telma', 'Orange', 'Gulfsat'];
 
-function withAllOperatorLabels(data) {
-  const valueByLabel = Object.fromEntries(data.map((d) => [d.label, d.value]));
-  return OPERATOR_LABELS_ORDER.map((label) => ({
-    label,
-    value: valueByLabel[label] ?? 0,
-  }));
-}
-
-const ELECTRICITY_COLORS = {
-  'Secteur (JIRAMA)': '#2E86AB',      // bleu
-  Solaire: '#F2B134',                 // jaune/orange
-  'Groupe electrogene': '#D7263D',    // rouge
-  Mixte: '#6A4C93',                   // violet
-  'Non renseigne / Autre': '#8D99AE', // gris
+const ELECTRICITY_COLORS: Record<string, string> = {
+  'Secteur (JIRAMA)': '#2E86AB',
+  Solaire: '#F2B134',
+  'Groupe electrogene': '#D7263D',
+  Mixte: '#6A4C93',
+  'Non renseigne / Autre': '#8D99AE',
 };
 
 const ELECTRICITY_LABELS_ORDER = [
@@ -89,7 +83,15 @@ const ELECTRICITY_LABELS_ORDER = [
   'Non renseigne / Autre',
 ];
 
-function withAllElectricityLabels(data) {
+function withAllOperatorLabels(data: { label: string; value: number }[]) {
+  const valueByLabel = Object.fromEntries(data.map((d) => [d.label, d.value]));
+  return OPERATOR_LABELS_ORDER.map((label) => ({
+    label,
+    value: valueByLabel[label] ?? 0,
+  }));
+}
+
+function withAllElectricityLabels(data: { label: string; value: number }[]) {
   const valueByLabel = Object.fromEntries(data.map((d) => [d.label, d.value]));
   return ELECTRICITY_LABELS_ORDER.map((label) => ({
     label,
@@ -97,23 +99,27 @@ function withAllElectricityLabels(data) {
   }));
 }
 
-const FALLBACK_COLOR = COLORS.subtitle;
-
-function colorFor(label, colorMap) {
-  return colorMap[label] || FALLBACK_COLOR;
+function colorFor(
+  label: string,
+  colorMap: Record<string, string>,
+  colors: ThemeColors,
+) {
+  return colorMap[label] || colors.subtitle;
 }
 
-function AnimatedVerticalBar({ value, color }) {
+// --- Composants d'animation ---
+
+function AnimatedVerticalBar({ value, color }: { value: number; color: string }) {
+  const styles = useThemedStyles(createStyles);
   const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     progress.setValue(0);
-
     Animated.timing(progress, {
       toValue: value,
       duration: 800,
       easing: Easing.out(Easing.ease),
-      useNativeDriver: false, // on anime "height", pas transform/opacity
+      useNativeDriver: false,
     }).start();
   }, [value]);
 
@@ -129,17 +135,78 @@ function AnimatedVerticalBar({ value, color }) {
   );
 }
 
-//affichage de la page de statistique de qualite de signal sous forme de chart en cercle
+function AnimatedProgressBar({ value, color }: { value: number; color: string }) {
+  const styles = useThemedStyles(createStyles);
+  const progress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    progress.setValue(0);
+    Animated.timing(progress, {
+      toValue: value,
+      duration: 800,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: false,
+    }).start();
+  }, [value]);
+
+  const width = progress.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+  });
+
+  return (
+    <View style={styles.barTrack}>
+      <Animated.View
+        style={[styles.barFill, { width, backgroundColor: color }]}
+      />
+    </View>
+  );
+}
+
+function ContainerAnimated({
+  children,
+  dataChanged,
+}: {
+  children: React.ReactNode;
+  dataChanged: string;
+}) {
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    opacity.setValue(0);
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 100,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [dataChanged]);
+
+  return <Animated.View style={{ opacity }}>{children}</Animated.View>;
+}
+
+// --- Graphiques ---
+
 function SignalBarChart({ data = DEFAULT_SIGNAL_DATA }) {
+  const styles = useThemedStyles(createStyles);
+  const { colors } = useTheme();
+
   return (
     <ContainerAnimated dataChanged={JSON.stringify(data)}>
       <View style={styles.chartCard}>
-        <Text style={styles.chartTitle}>Qualite de signal</Text>
+        <Text style={styles.chartTitle}>Qualité de signal</Text>
         <View style={styles.verticalBarsRow}>
           {data.map((row) => (
             <View key={row.label} style={styles.verticalBarColumn}>
-              <Text style={styles.legendValue}>{parseFloat(row.value.toFixed(2))}%</Text>
-              <AnimatedVerticalBar value={row.value} color={colorFor(row.label, SIGNAL_COLORS)} />
+              <Text style={styles.legendValue}>
+                {parseFloat(row.value.toFixed(2))}%
+              </Text>
+              <AnimatedVerticalBar
+                value={row.value}
+                color={colorFor(row.label, SIGNAL_COLORS, colors)}
+              />
               <Text style={styles.legendLabel}>{row.label}</Text>
             </View>
           ))}
@@ -149,23 +216,26 @@ function SignalBarChart({ data = DEFAULT_SIGNAL_DATA }) {
   );
 }
 
-//affichage des stats d operateurs
 function OperatorBarChart({ data = DEFAULT_OPERATOR_DATA }) {
+  const styles = useThemedStyles(createStyles);
+  const { colors } = useTheme();
   const fullData = withAllOperatorLabels(data);
 
   return (
     <ContainerAnimated dataChanged={JSON.stringify(fullData)}>
       <View style={styles.chartCard}>
-        <Text style={styles.chartTitle}>Operateur</Text>
+        <Text style={styles.chartTitle}>Opérateur</Text>
         {fullData.map((row) => (
           <View key={row.label} style={styles.barRow}>
             <View style={styles.barTop}>
               <Text style={styles.legendLabel}>{row.label}</Text>
-              <Text style={styles.legendValue}>{parseFloat(row.value.toFixed(2))}%</Text>
+              <Text style={styles.legendValue}>
+                {parseFloat(row.value.toFixed(2))}%
+              </Text>
             </View>
             <AnimatedProgressBar
               value={row.value}
-              color={colorFor(row.label, OPERATOR_COLORS)}
+              color={colorFor(row.label, OPERATOR_COLORS, colors)}
             />
           </View>
         ))}
@@ -174,8 +244,9 @@ function OperatorBarChart({ data = DEFAULT_OPERATOR_DATA }) {
   );
 }
 
-//affichage de stats d electricite
 function ElectricityDonut({ data = DEFAULT_ELECTRICITY_DATA }) {
+  const styles = useThemedStyles(createStyles);
+  const { colors } = useTheme();
   const fullData = withAllElectricityLabels(data);
 
   const size = 160;
@@ -189,14 +260,12 @@ function ElectricityDonut({ data = DEFAULT_ELECTRICITY_DATA }) {
   useEffect(() => {
     progress.setValue(0);
     const listenerId = progress.addListener(({ value }) => setDrawProgress(value));
-
     Animated.timing(progress, {
       toValue: 1,
       duration: 900,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
-
     return () => progress.removeListener(listenerId);
   }, [JSON.stringify(fullData)]);
 
@@ -205,7 +274,7 @@ function ElectricityDonut({ data = DEFAULT_ELECTRICITY_DATA }) {
   return (
     <ContainerAnimated dataChanged={JSON.stringify(fullData)}>
       <View style={styles.chartCard}>
-        <Text style={styles.chartTitle}>Electricite</Text>
+        <Text style={styles.chartTitle}>Électricité</Text>
         <View style={styles.donutRow}>
           <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
             {fullData.map((slice) => {
@@ -214,7 +283,7 @@ function ElectricityDonut({ data = DEFAULT_ELECTRICITY_DATA }) {
               const dashArray = `${animatedSegment} ${circumference - animatedSegment}`;
               const dashOffset = -((cumulative / 100) * circumference);
               cumulative += slice.value;
-              const color = colorFor(slice.label, ELECTRICITY_COLORS);
+              const color = colorFor(slice.label, ELECTRICITY_COLORS, colors);
 
               return (
                 <Circle
@@ -235,9 +304,16 @@ function ElectricityDonut({ data = DEFAULT_ELECTRICITY_DATA }) {
           <View style={styles.legend}>
             {fullData.map((slice) => (
               <View key={slice.label} style={styles.legendRow}>
-                <View style={[styles.legendDot, { backgroundColor: colorFor(slice.label, ELECTRICITY_COLORS) }]} />
+                <View
+                  style={[
+                    styles.legendDot,
+                    { backgroundColor: colorFor(slice.label, ELECTRICITY_COLORS, colors) },
+                  ]}
+                />
                 <Text style={styles.legendLabel}>{slice.label}</Text>
-                <Text style={styles.legendValue}>{parseFloat(slice.value.toFixed(2))}%</Text>
+                <Text style={styles.legendValue}>
+                  {parseFloat(slice.value.toFixed(2))}%
+                </Text>
               </View>
             ))}
           </View>
@@ -246,11 +322,16 @@ function ElectricityDonut({ data = DEFAULT_ELECTRICITY_DATA }) {
     </ContainerAnimated>
   );
 }
-//selection des zones a etudier
+
+// --- DropDown principal ---
+
 export function DropDown() {
+  const styles = useThemedStyles(createStyles);
+  const { colors } = useTheme();
+
   const [openArea, setOpenArea] = useState(false);
   const [selectedArea, setSelectedArea] = useState('Tout');
-  const [totalPylones, setTotalPylones] = useState(null);
+  const [totalPylones, setTotalPylones] = useState<number | null>(null);
 
   const [openPlace, setOpenPlace] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState('Tout');
@@ -258,19 +339,17 @@ export function DropDown() {
   const [activeTab, setActiveTab] = useState('signal');
   const [showStats, setShowStats] = useState(false);
 
-  const [area, setArea] = useState(DEFAULT_AREAS);
-  const [placeNames, setPlaceNames] = useState([]);
+  const [area] = useState(DEFAULT_AREAS);
+  const [placeNames, setPlaceNames] = useState<string[]>([]);
   const [loadingPlaces, setLoadingPlaces] = useState(false);
   const [placeSearch, setPlaceSearch] = useState('');
-  const [selectedCode, setSelectedCode] = useState(null);
 
   const [signalData, setSignalData] = useState(DEFAULT_SIGNAL_DATA);
   const [operatorData, setOperatorData] = useState(DEFAULT_OPERATOR_DATA);
   const [electricityData, setElectricityData] = useState(DEFAULT_ELECTRICITY_DATA);
-  const [placesError, setPlacesError] = useState(null);
+  const [placesError, setPlacesError] = useState<string | null>(null);
 
-  // couverture reseau nationale affichee dans le bandeau du bas (calculee une seule fois)
-  const [nationalCoverage, setNationalCoverage] = useState(null);
+  const [nationalCoverage, setNationalCoverage] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -280,7 +359,6 @@ export function DropDown() {
         let signal, operator, electricity, total;
 
         if (!selectedPlace || selectedPlace === 'Tout') {
-          // aucune zone precise selectionnee : on calcule sur tout Madagascar
           ({ signal, operator, electricity, total } = await fetchStatsGlobal());
         } else {
           const codecomList = await resolveCodecomList(selectedArea, selectedPlace);
@@ -293,16 +371,17 @@ export function DropDown() {
         setOperatorData(operator.length > 0 ? operator : DEFAULT_OPERATOR_DATA);
         setElectricityData(electricity.length > 0 ? electricity : DEFAULT_ELECTRICITY_DATA);
         setTotalPylones(total ?? 0);
-      } catch (err) {
-        console.error('Erreur stats pylone:', err.message);
+      } catch (err: any) {
+        console.error('Erreur stats pylone:', err?.message);
       }
     }
 
     loadStats();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [selectedArea, selectedPlace]);
 
-  // couverture nationale pour le bandeau du bas : calculee une seule fois au montage
   useEffect(() => {
     let cancelled = false;
 
@@ -312,31 +391,29 @@ export function DropDown() {
         if (cancelled || signal.length === 0) return;
         const moyenne = signal.reduce((sum, s) => sum + s.value, 0) / signal.length;
         setNationalCoverage(moyenne);
-      } catch (err) {
-        console.error('Erreur couverture nationale:', err.message);
+      } catch (err: any) {
+        console.error('Erreur couverture nationale:', err?.message);
       }
     }
 
     loadNationalCoverage();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  function openStats(tabId) {
+  function openStats(tabId: string) {
     setActiveTab(tabId);
     setShowStats(true);
   }
 
-  // appelee au clic sur une option du premier dropdown (Commune / District / Fokontany)
-  // va chercher les noms de lieux via la couche backend (stats-api)
-  // si la requete echoue, on retombe sur des valeurs statiques par defaut
-  async function handleAreaSelect(option) {
+  async function handleAreaSelect(option: string) {
     setSelectedArea(option);
     setOpenArea(false);
     setPlacesError(null);
     setPlaceSearch('');
 
     if (!AREA_TABLE_MAP[option]) {
-      // cas "Tout" : pas de table associee
       setPlaceNames([]);
       setSelectedPlace('Tout');
       return;
@@ -347,19 +424,19 @@ export function DropDown() {
       const names = await fetchPlaceNames(option);
       setPlaceNames(names);
       setSelectedPlace(names[0] ?? 'Tout');
-    } catch (err) {
-      console.error('Erreur Supabase:', err.message);
+    } catch (err: any) {
+      console.error('Erreur Supabase:', err?.message);
       const fallback = FALLBACK_PLACES_BY_AREA[option] ?? [];
       setPlaceNames(fallback);
       setSelectedPlace(fallback[0] ?? 'Tout');
-      setPlacesError('Connexion au serveur echouee');
+      setPlacesError('Connexion au serveur échouée');
     } finally {
       setLoadingPlaces(false);
     }
   }
 
   const filteredPlaceNames = placeNames.filter((option) =>
-    option.toLowerCase().includes(placeSearch.toLowerCase())
+    option.toLowerCase().includes(placeSearch.toLowerCase()),
   );
 
   return (
@@ -377,8 +454,12 @@ export function DropDown() {
       <View style={styles.dropdownRow}>
         <View style={styles.dropdownWrapper}>
           <Pressable style={styles.button} onPress={() => setOpenArea(!openArea)}>
-            <Text>{selectedArea}</Text>
-            <FontAwesome name={openArea ? 'chevron-up' : 'chevron-down'} size={14} color="black" />
+            <Text style={styles.buttonText}>{selectedArea}</Text>
+            <FontAwesome
+              name={openArea ? 'chevron-up' : 'chevron-down'}
+              size={14}
+              color={colors.textDark}
+            />
           </Pressable>
 
           {openArea && (
@@ -386,10 +467,13 @@ export function DropDown() {
               {area.map((option) => (
                 <Pressable
                   key={option}
-                  style={({ hovered, pressed }) => [styles.option, (hovered || pressed) && styles.optionHovered]}
+                  style={({ pressed }) => [
+                    styles.option,
+                    pressed && styles.optionHovered,
+                  ]}
                   onPress={() => handleAreaSelect(option)}
                 >
-                  <Text>{option}</Text>
+                  <Text style={styles.optionText}>{option}</Text>
                 </Pressable>
               ))}
             </View>
@@ -398,8 +482,12 @@ export function DropDown() {
 
         <View style={styles.dropdownWrapper}>
           <Pressable style={styles.button} onPress={() => setOpenPlace(!openPlace)}>
-            <Text>{selectedPlace}</Text>
-            <FontAwesome name={openPlace ? 'chevron-up' : 'chevron-down'} size={14} color="black" />
+            <Text style={styles.buttonText}>{selectedPlace}</Text>
+            <FontAwesome
+              name={openPlace ? 'chevron-up' : 'chevron-down'}
+              size={14}
+              color={colors.textDark}
+            />
           </Pressable>
 
           {openPlace && (
@@ -407,13 +495,14 @@ export function DropDown() {
               <TextInput
                 style={styles.searchInput}
                 placeholder="Rechercher..."
+                placeholderTextColor={colors.placeholder}
                 value={placeSearch}
                 onChangeText={setPlaceSearch}
                 autoFocus
               />
 
               {loadingPlaces ? (
-                <Text style={styles.option}>Chargement...</Text>
+                <Text style={styles.optionText}>Chargement...</Text>
               ) : (
                 <ScrollView
                   style={styles.suggestionsScroll}
@@ -421,14 +510,14 @@ export function DropDown() {
                   keyboardShouldPersistTaps="handled"
                 >
                   {filteredPlaceNames.length === 0 ? (
-                    <Text style={styles.option}>Aucun resultat</Text>
+                    <Text style={styles.optionText}>Aucun résultat</Text>
                   ) : (
                     filteredPlaceNames.map((option) => (
                       <Pressable
                         key={option}
-                        style={({ hovered, pressed }) => [
+                        style={({ pressed }) => [
                           styles.option,
-                          (hovered || pressed) && styles.optionHovered,
+                          pressed && styles.optionHovered,
                         ]}
                         onPress={() => {
                           setSelectedPlace(option);
@@ -436,7 +525,7 @@ export function DropDown() {
                           setPlaceSearch('');
                         }}
                       >
-                        <Text>{option}</Text>
+                        <Text style={styles.optionText}>{option}</Text>
                       </Pressable>
                     ))
                   )}
@@ -456,19 +545,27 @@ export function DropDown() {
       <View style={styles.bottomStat}>
         <Text style={styles.bottomStatLabel}>Couverture réseau de Madagascar</Text>
         <Text style={styles.bottomStatValue}>
-          {nationalCoverage !== null ? ` ${parseFloat(nationalCoverage.toFixed(1))} %` : ' ... '}
+          {nationalCoverage !== null
+            ? `${parseFloat(nationalCoverage.toFixed(1))} %`
+            : ' ... '}
         </Text>
       </View>
 
       {showStats && (
-        <ScrollView style={styles.statsPanel} contentContainerStyle={styles.statsPanelContent}>
+        <ScrollView
+          style={styles.statsPanel}
+          contentContainerStyle={styles.statsPanelContent}
+        >
           {activeTab === 'signal' && <SignalBarChart data={signalData} />}
           {activeTab === 'electricity' && <ElectricityDonut data={electricityData} />}
           {activeTab === 'operator' && <OperatorBarChart data={operatorData} />}
           {totalPylones !== null && (
             <Text style={styles.totalPylonesText}>
-              {totalPylones} pylone{totalPylones > 1 ? 's' : ''} recense{totalPylones > 1 ? 's' : ''}
-              {selectedPlace && selectedPlace !== 'Tout' ? ` a ${selectedPlace}` : ' au total'}
+              {totalPylones} pylone{totalPylones > 1 ? 's' : ''} recensé
+              {totalPylones > 1 ? 's' : ''}
+              {selectedPlace && selectedPlace !== 'Tout'
+                ? ` à ${selectedPlace}`
+                : ' au total'}
             </Text>
           )}
         </ScrollView>
@@ -476,13 +573,13 @@ export function DropDown() {
 
       <View style={styles.threeButtonRow}>
         <Pressable style={styles.threeButton} onPress={() => openStats('signal')}>
-          <Ionicons name="cellular" size={40} />
+          <Ionicons name="cellular" size={40} color={colors.textDark} />
         </Pressable>
         <Pressable style={styles.threeButton} onPress={() => openStats('electricity')}>
-          <Ionicons name="flash" size={40} />
+          <Ionicons name="flash" size={40} color={colors.textDark} />
         </Pressable>
         <Pressable style={styles.threeButton} onPress={() => openStats('operator')}>
-          <Ionicons name="business" size={40} />
+          <Ionicons name="business" size={40} color={colors.textDark} />
         </Pressable>
       </View>
     </>
@@ -490,6 +587,8 @@ export function DropDown() {
 }
 
 export default function StatsScreen() {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.screen}>
       <SafeAreaView style={styles.container}>
@@ -500,333 +599,284 @@ export default function StatsScreen() {
   );
 }
 
-function ContainerAnimated({ children, dataChanged })
-{
-  const opacity = useRef(new Animated.Value(0)).current;
+// --- Styles dépendants du thème ---
 
-  useEffect(() => {
-    opacity.setValue(0);
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      alignItems: 'center',
+      backgroundColor: c.background,
+    },
 
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 100,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      })
-    ]).start();
-  }, [dataChanged]);
+    container: {
+      width: '100%',
+      maxWidth: 430,
+      flex: 1,
+    },
 
-  return (
-    <Animated.View style={{opacity}}>
-      {children}
-    </Animated.View>
-  );
-}
+    dropdownRow: {
+      flexDirection: 'row',
+      zIndex: 10,
+      height: 90,
+    },
 
-function AnimatedProgressBar({ value, color })
-{
-  const progress = useRef(new Animated.Value(0)).current;
+    dropdownWrapper: {
+      flex: 1,
+      position: 'relative',
+    },
 
-  useEffect(() => {
-    progress.setValue(0);
+    overlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 5,
+      backgroundColor: c.overlay,
+    },
 
-    Animated.timing(progress, {
-      toValue: value,
-      duration: 800,
-      easing: Easing.out(Easing.ease),
-      useNativeDriver: false,
-    }).start();
-  }, [value]);
+    button: {
+      flexDirection: 'row',
+      position: 'absolute',
+      borderRadius: 32,
+      backgroundColor: c.cardBg,
+      padding: 12,
+      paddingLeft: 30,
+      paddingRight: 20,
+      top: 20,
+      left: 10,
+      right: 10,
+      gap: 20,
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
 
-  const width = progress.interpolate({
-    inputRange: [0, 100],
-    outputRange: ['0%', '100%'],
+    buttonText: { color: c.textDark },
+
+    list: {
+      flexDirection: 'column',
+      position: 'absolute',
+      borderRadius: 32,
+      backgroundColor: c.cardBg,
+      padding: 12,
+      paddingLeft: 30,
+      paddingRight: 20,
+      top: 20,
+      left: 10,
+      right: 10,
+      gap: 20,
+      zIndex: 20,
+      elevation: 6,
+    },
+
+    optionHovered: {
+      backgroundColor: c.cardBgAlt,
+      borderRadius: 10,
+      paddingLeft: 10,
+      padding: 5,
+    },
+
+    option: {
+      backgroundColor: c.cardBg,
+    },
+
+    optionText: { color: c.textDark },
+
+    bottomStat: {
+      position: 'absolute',
+      backgroundColor: c.primaryDark,
+      bottom: 100,
+      right: 40,
+      left: 40,
+      height: 64,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-around',
+      borderRadius: 32,
+      paddingHorizontal: 12,
+      shadowColor: '#000',
+      shadowOpacity: 0.1,
+      shadowOffset: { width: 0, height: 4 },
+      shadowRadius: 10,
+      elevation: 4,
+    },
+
+    bottomStatLabel: {
+      fontSize: 15,
+      color: c.textLight,
+      flex: 1,
+      paddingLeft: 10,
+      textAlign: 'center',
+    },
+
+    bottomStatValue: {
+      fontSize: 40,
+      color: c.textLight,
+    },
+
+    statsPanel: {
+      paddingHorizontal: 20,
+      marginTop: 16,
+      maxHeight: '38%',
+    },
+
+    statsPanelContent: {
+      paddingBottom: 20,
+    },
+
+    threeButtonRow: {
+      flexDirection: 'row',
+      position: 'absolute',
+      gap: 10,
+      bottom: 200,
+      right: 20,
+      left: 20,
+      justifyContent: 'center',
+    },
+
+    threeButton: {
+      backgroundColor: c.cardBg,
+      padding: 10,
+      borderRadius: 40,
+    },
+
+    chartCard: {
+      backgroundColor: c.cardBg,
+      borderRadius: 20,
+      padding: 16,
+      gap: 35,
+    },
+
+    donutRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 20,
+    },
+
+    legend: { flex: 1, gap: 8 },
+
+    legendRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+
+    legendDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+    },
+
+    legendLabel: {
+      flex: 1,
+      fontSize: 12,
+      color: c.textDark,
+    },
+
+    legendValue: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: c.textDark,
+    },
+
+    barRow: { gap: 6 },
+
+    barTop: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+
+    barTrack: {
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: c.cardBgAlt,
+      overflow: 'hidden',
+    },
+
+    barFill: {
+      height: '100%',
+      borderRadius: 4,
+    },
+
+    stackBar: {
+      flexDirection: 'row',
+      height: 16,
+      borderRadius: 8,
+      overflow: 'hidden',
+    },
+
+    chartTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: c.textDark,
+      marginBottom: 4,
+      textAlign: 'center',
+    },
+
+    searchInput: {
+      backgroundColor: c.cardBgAlt,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      fontSize: 13,
+      marginBottom: 8,
+      color: c.textDark,
+    },
+
+    suggestionsScroll: {
+      maxHeight: 200,
+    },
+
+    errorBanner: {
+      marginHorizontal: 20,
+      marginTop: 8,
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      backgroundColor: c.dangerBg,
+    },
+
+    errorBannerText: {
+      fontSize: 12,
+      color: c.dangerText,
+      textAlign: 'center',
+    },
+
+    verticalBarsRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      justifyContent: 'space-around',
+      height: 160,
+    },
+
+    verticalBarColumn: {
+      alignItems: 'center',
+      gap: 6,
+      height: '100%',
+      justifyContent: 'flex-end',
+    },
+
+    verticalBarTrack: {
+      width: 28,
+      height: 100,
+      borderRadius: 6,
+      backgroundColor: c.cardBgAlt,
+      overflow: 'hidden',
+      justifyContent: 'flex-end',
+    },
+
+    verticalBarFill: {
+      width: '100%',
+      borderRadius: 6,
+    },
+
+    totalPylonesText: {
+      fontSize: 13,
+      color: c.textDark,
+      textAlign: 'center',
+      marginTop: 12,
+      fontWeight: '500',
+    },
   });
-
-  return (
-    <View style={styles.barTrack}>
-      <Animated.View
-        style={[styles.barFill,
-          {
-            width,
-            backgroundColor: color,
-          },
-        ]}
-      />
-    </View>
-  );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-  },
-
-  container: {
-    width: '100%',
-    maxWidth: 430,
-    flex: 1,
-  },
-
-  dropdownRow: {
-    flexDirection: 'row',
-    zIndex: 10,
-    height: 90,
-  },
-
-  dropdownWrapper: {
-    flex: 1,
-    position: 'relative',
-  },
-
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 5,
-  },
-
-  button: {
-    flexDirection: 'row',
-    position: 'absolute',
-    borderRadius: 32,
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-    paddingLeft: 30,
-    paddingRight: 20,
-    top: 20,
-    left: 10,
-    right: 10,
-    gap: 20,
-    justifyContent: 'space-between',
-  },
-
-  list: {
-    flexDirection: 'column',
-    position: 'absolute',
-    borderRadius: 32,
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-    paddingLeft: 30,
-    paddingRight: 20,
-    top: 20,
-    left: 10,
-    right: 10,
-    gap: 20,
-  },
-
-  optionHovered: {
-    backgroundColor: '#accab0',
-    borderRadius: 10,
-    paddingLeft: 10,
-    padding: 5,
-  },
-
-  option: {
-    backgroundColor: '#ffffff',
-  },
-
-  bottomStat: {
-    position: 'absolute',
-    backgroundColor: '#1B3A2B',
-    bottom: 100,
-    right: 40,
-    left: 40,
-    height: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    borderRadius: 32,
-    paddingHorizontal: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 4,
-  },
-
-  bottomStatLabel: {
-    fontSize: 15,
-    color: '#ffffff',
-    flex: 1,
-    paddingLeft: 10,
-    textAlign: 'center',
-  },
-
-  bottomStatValue: {
-    fontSize: 40,
-    color: '#ffffff',
-  },
-
-  statsPanel: {
-    paddingHorizontal: 20,
-    marginTop: 16,
-    maxHeight: '38%',
-  },
-
-  statsPanelContent: {
-    paddingBottom: 20,
-  },
-
-  threeButtonRow: {
-    flexDirection: 'row',
-    position: 'absolute',
-    gap: 10,
-    bottom: 200,
-    right: 20,
-    left: 20,
-    justifyContent: 'center',
-  },
-
-  threeButton: {
-    backgroundColor: '#ffffff',
-    padding: 10,
-    borderRadius: 40,
-  },
-
-  chartCard: {
-    backgroundColor: COLORS.cardBg,
-    borderRadius: 20,
-    padding: 16,
-    gap: 35,
-  },
-
-  donutRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 20,
-  },
-
-  legend: {
-    flex: 1,
-    gap: 8,
-  },
-
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-
-  legendLabel: {
-    flex: 1,
-    fontSize: 12,
-    color: COLORS.textDark,
-  },
-
-  legendValue: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.textDark,
-  },
-
-  barRow: {
-    gap: 6,
-  },
-
-  barTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-
-  barTrack: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.background,
-    overflow: 'hidden',
-  },
-
-  barFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-
-  stackBar: {
-    flexDirection: 'row',
-    height: 16,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-
-  chartTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textDark,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-
-  searchInput: {
-    backgroundColor: '#F2F0EA',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 13,
-    marginBottom: 8,
-  },
-
-  suggestionsScroll: {
-    maxHeight: 200,
-  },
-
-  errorBanner: {
-    marginHorizontal: 20,
-    marginTop: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: '#F4D9CE',
-  },
-
-  errorBannerText: {
-    fontSize: 12,
-    color: '#8A3B1E',
-    textAlign: 'center',
-  },
-
-  verticalBarsRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-around',
-    height: 160,
-  },
-
-  verticalBarColumn: {
-    alignItems: 'center',
-    gap: 6,
-    height: '100%',
-    justifyContent: 'flex-end',
-  },
-
-  verticalBarTrack: {
-    width: 28,
-    height: 100,
-    borderRadius: 6,
-    backgroundColor: COLORS.background,
-    overflow: 'hidden',
-    justifyContent: 'flex-end',
-  },
-
-  verticalBarFill: {
-    width: '100%',
-    borderRadius: 6,
-  },
-  totalPylonesText: {
-    fontSize: 13,
-    color: COLORS.textDark,
-    textAlign: 'center',
-    marginTop: 12,
-    fontWeight: '500',
-  },
-});
