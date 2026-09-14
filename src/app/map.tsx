@@ -19,7 +19,6 @@ const COLORS = {
 
 export default function StatsScreen() {
   const [text, onChangeText] = React.useState('');
-  const [location, setLocation] = React.useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [currentUserLocation, setCurrentUserLocation] = React.useState<
     [lng: number, lat: number] | undefined
@@ -29,7 +28,6 @@ export default function StatsScreen() {
 
   async function getLocation() {
     let location = await Location.getCurrentPositionAsync({});
-    setLocation(location);
     let stateText = 'Waiting...';
     if (errorMsg) {
       stateText = errorMsg;
