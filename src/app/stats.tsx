@@ -535,39 +535,32 @@ export function DropDown() {
           )}
         </View>
       </View>
-
+      
       {placesError && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorBannerText}>{placesError}</Text>
         </View>
       )}
 
+      {totalPylones !== null && (
+        <Text style={styles.totalPylonesText}>
+          {totalPylones} pylone{totalPylones > 1 ? 's' : ''} recense{totalPylones > 1 ? 's' : ''}
+          {selectedPlace && selectedPlace !== 'Tout' ? ` a ${selectedPlace}` : ' au total'}
+        </Text>
+      )}
+
       <View style={styles.bottomStat}>
         <Text style={styles.bottomStatLabel}>Couverture réseau de Madagascar</Text>
         <Text style={styles.bottomStatValue}>
-          {nationalCoverage !== null
-            ? `${parseFloat(nationalCoverage.toFixed(1))} %`
-            : ' ... '}
+          {nationalCoverage !== null ? ` ${parseFloat(nationalCoverage.toFixed(1))} %` : ' ... '}
         </Text>
       </View>
 
       {showStats && (
-        <ScrollView
-          style={styles.statsPanel}
-          contentContainerStyle={styles.statsPanelContent}
-        >
+        <ScrollView style={styles.statsPanel} contentContainerStyle={styles.statsPanelContent}>
           {activeTab === 'signal' && <SignalBarChart data={signalData} />}
           {activeTab === 'electricity' && <ElectricityDonut data={electricityData} />}
           {activeTab === 'operator' && <OperatorBarChart data={operatorData} />}
-          {totalPylones !== null && (
-            <Text style={styles.totalPylonesText}>
-              {totalPylones} pylone{totalPylones > 1 ? 's' : ''} recensé
-              {totalPylones > 1 ? 's' : ''}
-              {selectedPlace && selectedPlace !== 'Tout'
-                ? ` à ${selectedPlace}`
-                : ' au total'}
-            </Text>
-          )}
         </ScrollView>
       )}
 

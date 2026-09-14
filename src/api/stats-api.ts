@@ -200,15 +200,9 @@ export async function resolveCodecomList(area: string, placeNom: string): Promis
 // ============================================================================
 // Calcul des statistiques a partir des lignes brutes de infrastructure_pylone
 // ============================================================================
-function classifyEnergie(sourceEnergie: string | null): string {
-  if (!sourceEnergie) return 'Non renseigne / Autre';
-  if (sourceEnergie === 'ENERGIE SOLAIRE' || sourceEnergie === 'ENERGIE SOLAIRE + EOLIENE') return 'Solaire';
-  if (sourceEnergie === 'JIRAMA') return 'Secteur (JIRAMA)';
-  if (['GE', 'GE PROVISOIRE', 'SOLDIÈSE', 'SOLDIES'].includes(sourceEnergie)) return 'Groupe electrogene';
-  if (sourceEnergie === 'MIXTE' || sourceEnergie.includes('+')) return 'Mixte';
-  return 'Non renseigne / Autre';
-}
-
+// ============================================================================
+// Calcul des statistiques (agregation faite cote Postgres via RPC)
+// ============================================================================
 const OPERATOR_LABELS: Record<string, string> = {
   TELMA: 'Telma',
   ORANGE: 'Orange',
@@ -216,78 +210,43 @@ const OPERATOR_LABELS: Record<string, string> = {
   GULFSAT: 'Gulfsat',
 };
 
-// factorise le calcul des 3 series a partir des lignes brutes
-function computeStats(rows: any[]): ZoneStats {
-  const total = rows.length;
+/** Un seul appel RPC : Postgres fait l'agregation, le telephone ne recoit que le resume. */
+async function fetchStatsRpc(codecomList: string[] | null): Promise<ZoneStats> {
+  const { data, error } = await supabase.rpc('stats_pylones', { codecoms: codecomList });
+  if (error) throw error;
+
+  const total = Number(data.total) || 0;
   if (total === 0) {
     return { signal: [], operator: [], electricity: [], total: 0 };
   }
 
-  // signal : taux de couverture par techno (independants, ne somment pas a 100)
-  const nb2g = rows.filter((r) => r.tech_2g === 't').length;
-  const nb3g = rows.filter((r) => r.tech_3g === 't').length;
-  const nb4g = rows.filter((r) => r.tech_4g === 't').length;
-  const nb5g = rows.filter((r) => r.tech_5g === 't').length;
   const signal = [
-    { label: '2G', value: (nb2g / total) * 100 },
-    { label: '3G', value: (nb3g / total) * 100 },
-    { label: '4G', value: (nb4g / total) * 100 },
-    { label: '5G', value: (nb5g / total) * 100 },
+    { label: '2G', value: (Number(data.nb2g) / total) * 100 },
+    { label: '3G', value: (Number(data.nb3g) / total) * 100 },
+    { label: '4G', value: (Number(data.nb4g) / total) * 100 },
+    { label: '5G', value: (Number(data.nb5g) / total) * 100 },
   ];
 
-  // operateur : repartition exclusive (somme a 100)
-  const operatorCounts: Record<string, number> = {};
-  rows.forEach((r) => {
-    const key = r.code_operateur;
-    operatorCounts[key] = (operatorCounts[key] ?? 0) + 1;
-  });
-  const operator = Object.entries(operatorCounts).map(([code, count]) => ({
+  const operator = Object.entries(data.operators ?? {}).map(([code, nb]) => ({
     label: OPERATOR_LABELS[code] ?? code,
-    value: (count / total) * 100,
+    value: (Number(nb) / total) * 100,
   }));
 
-  // electricite : 5 categories (somme a 100)
-  const electricityCounts: Record<string, number> = {};
-  rows.forEach((r) => {
-    const categorie = classifyEnergie(r.source_energie);
-    electricityCounts[categorie] = (electricityCounts[categorie] ?? 0) + 1;
-  });
-  const electricity = Object.entries(electricityCounts).map(([label, count]) => ({
+  const electricity = Object.entries(data.electricity ?? {}).map(([label, nb]) => ({
     label,
-    value: (count / total) * 100,
+    value: (Number(nb) / total) * 100,
   }));
-
-  const totalPercent = electricity.reduce((sum, e) => sum + e.value, 0);
-  if (Math.abs(totalPercent - 100) > 0.5) {
-    console.warn(
-      `Electricite: total = ${totalPercent.toFixed(2)}% (attendu ~100%) — verifie les libelles de classifyEnergie`
-    );
-  }
 
   return { signal, operator, electricity, total };
 }
 
-/** Statistiques pour une liste de codecom (une zone precise). */
 export async function fetchStatsForZone(codecomList: string[]): Promise<ZoneStats> {
   if (codecomList.length === 0) {
     return { signal: [], operator: [], electricity: [], total: 0 };
   }
-
-  const { data: rows, error } = await supabase
-    .from('infrastructure_pylone')
-    .select('code_operateur, tech_2g, tech_3g, tech_4g, tech_5g, source_energie')
-    .in('codecom', codecomList);
-
-  if (error) throw error;
-  return computeStats(rows);
+  return fetchStatsRpc(codecomList);
 }
 
-/** Meme calcul mais sans filtre : tout Madagascar. */
 export async function fetchStatsGlobal(): Promise<ZoneStats> {
-  const { data: rows, error } = await supabase
-    .from('infrastructure_pylone')
-    .select('code_operateur, tech_2g, tech_3g, tech_4g, tech_5g, source_energie');
-
-  if (error) throw error;
-  return computeStats(rows);
+  return fetchStatsRpc(null);
 }
