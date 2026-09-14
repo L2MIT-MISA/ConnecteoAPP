@@ -14,16 +14,61 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSession } from '../auth/session';
 
-export default function LoginScreen() {
-  const { signIn } = useSession();
+export default function RegisterScreen() {
+  const { signUp } = useSession();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [enCours, setEnCours] = useState(false);
 
-  function handleCreateAccount() {
-    signIn();
-    router.replace('/message');
+  async function handleCreateAccount() {
+    setErreur(null);
+    setEnCours(true);
+
+    if (!name.trim()) {
+      setErreur('Veuillez entrer votre nom complet');
+      setEnCours(false);
+      return;
+    }
+    if (!email.trim()) {
+      setErreur('Veuillez entrer votre e-mail');
+      setEnCours(false);
+      return;
+    }
+    if (!phone.trim()) {
+      setErreur('Veuillez entrer votre téléphone');
+      setEnCours(false);
+      return;
+    }
+    if (password.length < 6) {
+      setErreur('Le mot de passe doit contenir au moins 6 caractères');
+      setEnCours(false);
+      return;
+    }
+    if (password !== confirmation) {
+      setErreur('Les mots de passe ne correspondent pas');
+      setEnCours(false);
+      return;
+    }
+
+    try {
+      const { erreur: messageErreur } = await signUp(name, email, password, phone);
+
+      if (messageErreur) {
+        setErreur(messageErreur);
+        return;
+      }
+
+      router.replace('/message');
+    } catch (exception) {
+      const message = exception instanceof Error ? exception.message : 'Erreur inconnue';
+      setErreur(`Erreur réseau : ${message}`);
+    } finally {
+      setEnCours(false);
+    }
   }
 
   return (
@@ -63,6 +108,14 @@ export default function LoginScreen() {
                   textContentType="emailAddress"
                 />
                 <FormField
+                  label="Téléphone"
+                  placeholder="+261 34 00 000 00"
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                  textContentType="telephoneNumber"
+                />
+                <FormField
                   label="Mot de passe"
                   placeholder="••••••••"
                   value={password}
@@ -80,8 +133,15 @@ export default function LoginScreen() {
                 />
               </View>
 
-              <Pressable style={styles.submitButton} onPress={handleCreateAccount}>
-                <Text style={styles.submitText}>Créer mon compte</Text>
+              {erreur && <Text style={styles.errorText}>{erreur}</Text>}
+
+              <Pressable
+                style={[styles.submitButton, enCours && styles.submitButtonDisabled]}
+                onPress={handleCreateAccount}
+                disabled={enCours}>
+                <Text style={styles.submitText}>
+                  {enCours ? 'Création...' : 'Créer mon compte'}
+                </Text>
               </Pressable>
 
               <Link href="/login" asChild>
@@ -102,9 +162,9 @@ type FormFieldProps = {
   placeholder: string;
   value: string;
   onChangeText: (value: string) => void;
-  keyboardType?: 'default' | 'email-address';
+  keyboardType?: 'default' | 'email-address' | 'phone-pad';
   secureTextEntry?: boolean;
-  textContentType?: 'emailAddress' | 'name' | 'newPassword';
+  textContentType?: 'emailAddress' | 'name' | 'newPassword' | 'telephoneNumber';
 };
 
 function FormField({ label, ...inputProps }: FormFieldProps) {
@@ -166,7 +226,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#16452d',
     marginTop: -1,
   },
+  submitButtonDisabled: { opacity: 0.6 },
   submitText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
+  errorText: { color: '#c0392b', fontSize: 12, textAlign: 'center', marginTop: 8 },
   loginPrompt: { color: '#737b8d', fontSize: 12, textAlign: 'center', marginTop: -6 },
   loginLink: { color: '#16452d', fontWeight: '700' },
 });

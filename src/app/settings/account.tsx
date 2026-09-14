@@ -1,11 +1,55 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useSession } from '../../auth/session';
+
 export default function AccountScreen() {
-  const [name, setName] = useState('M. Rakoto');
-  const [email, setEmail] = useState('m.rakoto@email.com');
-  const [phone, setPhone] = useState('+261 34 00 000 00');
+  const { user, profil, updateProfil } = useSession();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [enCours, setEnCours] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [succes, setSucces] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (profil) {
+      setName(profil.full_name);
+      setEmail(profil.email ?? '');
+      setPhone(profil.phoneNumber ?? '');
+    } else if (user) {
+      setEmail(user.email ?? '');
+    }
+  }, [profil, user]);
+
+  async function handleSave() {
+    setErreur(null);
+    setSucces(null);
+    setEnCours(true);
+
+    if (!name.trim()) {
+      setErreur('Veuillez entrer votre nom complet');
+      setEnCours(false);
+      return;
+    }
+
+    try {
+      const { erreur: messageErreur } = await updateProfil(name, phone);
+
+      if (messageErreur) {
+        setErreur(messageErreur);
+        return;
+      }
+
+      setSucces('Modifications enregistrées');
+    } catch (exception) {
+      const message = exception instanceof Error ? exception.message : 'Erreur inconnue';
+      setErreur(`Erreur réseau : ${message}`);
+    } finally {
+      setEnCours(false);
+    }
+  }
 
   return (
     <View style={styles.screen}>
@@ -15,7 +59,9 @@ export default function AccountScreen() {
           behavior={Platform.select({ ios: 'padding', default: undefined })}>
           <Text style={styles.title}>Mon compte</Text>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>MR</Text>
+            <Text style={styles.avatarText}>
+              {name.charAt(0).toUpperCase()}{name.split(' ').pop()?.charAt(0).toUpperCase() || ''}
+            </Text>
           </View>
           <Pressable>
             <Text style={styles.changePhoto}>Changer la photo</Text>
@@ -29,12 +75,21 @@ export default function AccountScreen() {
               onChangeText={setEmail}
               keyboardType="email-address"
               textContentType="emailAddress"
+              editable={false}
             />
             <AccountField label="Téléphone" value={phone} onChangeText={setPhone} textContentType="telephoneNumber" />
           </View>
 
-          <Pressable style={styles.saveButton}>
-            <Text style={styles.saveText}>Enregistrer les modifications</Text>
+          {erreur && <Text style={styles.errorText}>{erreur}</Text>}
+          {succes && <Text style={styles.succesText}>{succes}</Text>}
+
+          <Pressable
+            style={[styles.saveButton, enCours && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={enCours}>
+            <Text style={styles.saveText}>
+              {enCours ? 'Enregistrement...' : 'Enregistrer les modifications'}
+            </Text>
           </Pressable>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -48,13 +103,14 @@ type AccountFieldProps = {
   onChangeText: (value: string) => void;
   keyboardType?: 'default' | 'email-address';
   textContentType: 'emailAddress' | 'name' | 'telephoneNumber';
+  editable?: boolean;
 };
 
-function AccountField({ label, ...inputProps }: AccountFieldProps) {
+function AccountField({ label, editable = true, ...inputProps }: AccountFieldProps) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput {...inputProps} autoCapitalize="none" style={styles.input} />
+      <TextInput {...inputProps} autoCapitalize="none" style={styles.input} editable={editable} />
     </View>
   );
 }
@@ -72,5 +128,8 @@ const styles = StyleSheet.create({
   label: { color: '#70798a', fontSize: 12, textAlign: 'center' },
   input: { height: 42, borderWidth: 1, borderColor: '#dfe1e5', borderRadius: 10, backgroundColor: '#ffffff', paddingHorizontal: 14, color: '#18212d', fontSize: 14 },
   saveButton: { width: '100%', minHeight: 45, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: '#16452d', marginTop: 18 },
+  saveButtonDisabled: { opacity: 0.6 },
   saveText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
+  errorText: { color: '#c0392b', fontSize: 12, textAlign: 'center', marginTop: 8 },
+  succesText: { color: '#16452d', fontSize: 12, textAlign: 'center', marginTop: 8 },
 });

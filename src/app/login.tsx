@@ -17,10 +17,32 @@ export default function LoginScreen() {
   const { signIn } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [enCours, setEnCours] = useState(false);
 
-  function handleLogin() {
-    signIn();
-    router.replace('/message');
+  async function handleLogin() {
+    setErreur(null);
+    setEnCours(true);
+
+    try {
+      const { erreur: messageErreur } = await signIn(email, password);
+
+      if (messageErreur) {
+        setErreur(messageErreur);
+        return;
+      }
+
+      router.replace('/message');
+    } catch (exception) {
+      // Capte les erreurs qui ne passent pas par le { erreur } habituel,
+      // typiquement une exception réseau (serveur inaccessible, etc.).
+      const message = exception instanceof Error ? exception.message : 'Erreur inconnue';
+      setErreur(`Erreur réseau : ${message}`);
+    } finally {
+      // "finally" garantit que le bouton se débloque dans TOUS les cas,
+      // succès, erreur applicative, ou exception — plus jamais de blocage.
+      setEnCours(false);
+    }
   }
 
   return (
@@ -58,8 +80,15 @@ export default function LoginScreen() {
               />
             </View>
 
-            <Pressable style={styles.submitButton} onPress={handleLogin}>
-              <Text style={styles.submitText}>Se connecter</Text>
+            {erreur && <Text style={styles.errorText}>{erreur}</Text>}
+
+            <Pressable
+              style={[styles.submitButton, enCours && styles.submitButtonDisabled]}
+              onPress={handleLogin}
+              disabled={enCours}>
+              <Text style={styles.submitText}>
+                {enCours ? 'Connexion...' : 'Se connecter'}
+              </Text>
             </Pressable>
 
             <Link href="/register" asChild>
@@ -147,7 +176,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#16452d',
     marginTop: 1,
   },
+  submitButtonDisabled: { opacity: 0.6 },
   submitText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
+  errorText: { color: '#c0392b', fontSize: 12, textAlign: 'center' },
   registerPrompt: { color: '#737b8d', fontSize: 12, textAlign: 'center', marginTop: 1 },
   registerLink: { color: '#16452d', fontWeight: '700' },
 });
