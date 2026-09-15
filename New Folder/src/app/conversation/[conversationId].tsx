@@ -1,6 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,35 +7,9 @@ import { type ChatMessage, useMessaging } from '../../messaging/store';
 
 export default function ConversationScreen() {
   const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
-  const { conversations, error, isLoading, loadConversation, markConversationRead, messagesByConversation, sendMessage } =
-    useMessaging();
+  const { conversations, messagesByConversation } = useMessaging();
   const conversation = conversations.find((item) => item.id === conversationId);
   const messages = messagesByConversation[conversationId] ?? [];
-  const [draft, setDraft] = useState('');
-  const [isSending, setIsSending] = useState(false);
-
-  useEffect(() => {
-    if (!conversationId) {
-      return;
-    }
-
-    void loadConversation(conversationId);
-    void markConversationRead(conversationId);
-  }, [conversationId, loadConversation, markConversationRead]);
-
-  const handleSend = async () => {
-    if (!draft.trim() || isSending) {
-      return;
-    }
-
-    setIsSending(true);
-    const sent = await sendMessage(conversationId, draft);
-    setIsSending(false);
-
-    if (sent) {
-      setDraft('');
-    }
-  };
 
   return (
     <View style={styles.screen}>
@@ -64,31 +37,18 @@ export default function ConversationScreen() {
           renderItem={({ item }) => <MessageBubble message={item} />}
           contentContainerStyle={styles.messages}
           showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <Text style={styles.emptyMessage}>
-              {error ?? (isLoading ? 'Chargement des messages…' : 'Commencez la conversation.')}
-            </Text>
-          }
         />
 
         <View style={styles.composer}>
           <TextInput
-            editable={!isSending}
-            value={draft}
-            onChangeText={setDraft}
-            onSubmitEditing={() => void handleSend()}
+            editable={false}
             placeholder="Écrire un message…"
             placeholderTextColor="#727b8c"
             style={styles.input}
           />
-          <Pressable
-            accessibilityLabel="Envoyer le message"
-            disabled={!draft.trim() || isSending}
-            onPress={() => void handleSend()}
-            style={({ pressed }) => [styles.sendButton, (!draft.trim() || isSending) && styles.sendButtonDisabled, pressed && styles.sendButtonPressed]}
-          >
+          <View style={styles.sendButton}>
             <Feather name="send" size={20} color="#ffffff" />
-          </Pressable>
+          </View>
         </View>
       </SafeAreaView>
     </View>
@@ -134,7 +94,6 @@ const styles = StyleSheet.create({
   name: { color: '#142238', fontSize: 14, fontWeight: '700' },
   online: { color: '#34754d', fontSize: 10 },
   messages: { flexGrow: 1, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 76, gap: 9 },
-  emptyMessage: { color: '#697387', fontSize: 12, textAlign: 'center', marginTop: 24 },
   bubble: { maxWidth: '76%', borderRadius: 14, paddingHorizontal: 15, paddingVertical: 9 },
   incomingBubble: {
     alignSelf: 'flex-start',
@@ -178,6 +137,4 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     backgroundColor: '#16452d',
   },
-  sendButtonDisabled: { backgroundColor: '#95a49b' },
-  sendButtonPressed: { opacity: 0.72 },
 });

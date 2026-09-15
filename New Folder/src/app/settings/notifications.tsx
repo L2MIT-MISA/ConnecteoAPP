@@ -1,8 +1,7 @@
+import { useState } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useSession } from '../../auth/session';
-import { useNotificationPreferences } from '../../notifications/preferences';
 type NotificationOptionProps = {
   title: string;
   description: string;
@@ -28,18 +27,20 @@ function NotificationOption({ title, description, value, onValueChange }: Notifi
 }
 
 export default function NotificationsScreen() {
-  const { user } = useSession();
-  const { preferences, setPreference } = useNotificationPreferences(user?.id);
+  const [newMessages, setNewMessages] = useState(true);
+  const [contactRequests, setContactRequests] = useState(true);
+  const [networkAlerts, setNetworkAlerts] = useState(false);
+  const [sound, setSound] = useState(true);
 
   return (
     <View style={styles.screen}>
       <SafeAreaView style={styles.safeArea}>
         <Text style={styles.title}>Notifications</Text>
         <View style={styles.options}>
-          <NotificationOption title="Nouveaux messages" description="Recevoir une alerte à chaque message" value={preferences.newMessages} onValueChange={(value) => setPreference('newMessages', value)} />
-          <NotificationOption title="Demandes de contact" description="Être averti des nouvelles demandes" value={preferences.contactRequests} onValueChange={(value) => setPreference('contactRequests', value)} />
-          <NotificationOption title="Alertes réseau" description="État des relais à proximité" value={preferences.networkAlerts} onValueChange={(value) => setPreference('networkAlerts', value)} />
-          <NotificationOption title="Son" description="Jouer un son à la réception" value={preferences.sound} onValueChange={(value) => setPreference('sound', value)} />
+          <NotificationOption title="Nouveaux messages" description="Recevoir une alerte à chaque message" value={newMessages} onValueChange={setNewMessages} />
+          <NotificationOption title="Demandes de contact" description="Être averti des nouvelles demandes" value={contactRequests} onValueChange={setContactRequests} />
+          <NotificationOption title="Alertes réseau" description="État des relais à proximité" value={networkAlerts} onValueChange={setNetworkAlerts} />
+          <NotificationOption title="Son" description="Jouer un son à la réception" value={sound} onValueChange={setSound} />
         </View>
       </SafeAreaView>
     </View>

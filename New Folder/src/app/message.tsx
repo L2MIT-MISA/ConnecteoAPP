@@ -6,7 +6,7 @@ import { BottomNavigation } from '../components/bottom-navigation';
 import { type Conversation, useMessaging } from '../messaging/store';
 
 export default function MessageScreen() {
-  const { conversations, error, isLoading, refreshConversations } = useMessaging();
+  const { conversations } = useMessaging();
 
   return (
     <View style={styles.screen}>
@@ -28,13 +28,6 @@ export default function MessageScreen() {
           )}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshing={isLoading}
-          onRefresh={() => void refreshConversations()}
-          ListEmptyComponent={
-            <Text style={styles.emptyMessage}>
-              {error ?? (isLoading ? 'Chargement des conversations…' : 'Aucune conversation pour le moment.')}
-            </Text>
-          }
         />
         <BottomNavigation activeTab="messages" />
       </SafeAreaView>
@@ -79,7 +72,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   list: { paddingHorizontal: 44, paddingBottom: 112, gap: 8 },
-  emptyMessage: { color: '#697387', fontSize: 12, textAlign: 'center', marginTop: 32 },
   row: {
     minHeight: 61,
     flexDirection: 'row',
