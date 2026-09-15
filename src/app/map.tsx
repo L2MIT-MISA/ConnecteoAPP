@@ -133,7 +133,7 @@ export default function StatsScreen() {
               {
                 backgroundColor: pressed ? 'rgb(210, 230, 255)' : 'white',
                 position: 'absolute',
-                bottom: '10%',
+                bottom: '15%',
                 right: '5%',
                 borderRadius: 10,
                 width: 30,
@@ -195,6 +195,7 @@ function createStyles(c: ThemeColors) {
     statValue: { fontSize: 18, fontWeight: '700', color: c.textDark },
     statLabel: { fontSize: 13, color: c.textMuted, marginTop: 2 },
     map: {
+      marginTop: 20,
       width: '100%',
       height: '90%',
     },
