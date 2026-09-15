@@ -12,8 +12,9 @@ sudo apt intall ninja-build
 ## Add ANDROID_HOME to PATH
 
 ```bash
-export ANDROID_HOME=~/Android/Sdk ## By default
-export PATH=$PATH:$ANDROID_HOME
+echo 'export ANDROID_HOME=~/Android/Sdk' >> ~/.bashrc ## By default
+echo 'export PATH=$PATH:$ANDROID_HOME' >> ~/.bashrc
+source ~/.bashrc
 ```
 
 ## Make OpenJdk Permanent for your shell
