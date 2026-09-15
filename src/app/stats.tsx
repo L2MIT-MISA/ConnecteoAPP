@@ -187,9 +187,7 @@ function ContainerAnimated({
   return <Animated.View style={{ opacity }}>{children}</Animated.View>;
 }
 
-// ---------------------------------------------------------------------------
 // BOUTON D'ONGLET ANIMÉ (pill) — même style que BottomNavigation
-// ---------------------------------------------------------------------------
 
 const TabButton: React.FC<{
   active: boolean;
@@ -238,9 +236,7 @@ const TabButton: React.FC<{
   );
 };
 
-// ---------------------------------------------------------------------------
 // GRAPHIQUES
-// ---------------------------------------------------------------------------
 
 function SignalBarChart({ data = DEFAULT_SIGNAL_DATA }) {
   const styles = useThemedStyles(createStyles);
@@ -390,9 +386,7 @@ function ElectricityDonut({ data = DEFAULT_ELECTRICITY_DATA }) {
   );
 }
 
-// ---------------------------------------------------------------------------
 // DROPDOWN PRINCIPAL
-// ---------------------------------------------------------------------------
 
 export function DropDown() {
   const styles = useThemedStyles(createStyles);
@@ -680,9 +674,7 @@ export function DropDown() {
   );
 }
 
-// ---------------------------------------------------------------------------
 // ÉCRAN PRINCIPAL
-// ---------------------------------------------------------------------------
 
 export default function StatsScreen() {
   const styles = useThemedStyles(createStyles);
@@ -697,9 +689,7 @@ export default function StatsScreen() {
   );
 }
 
-// ---------------------------------------------------------------------------
 // STYLES
-// ---------------------------------------------------------------------------
 
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
