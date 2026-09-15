@@ -29,7 +29,8 @@
         {
           "isAndroidBackgroundLocationEnabled": "true"
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "ios": {
       "bundleIdentifier": "com.fiaroiarilanja.CONNECTEO"

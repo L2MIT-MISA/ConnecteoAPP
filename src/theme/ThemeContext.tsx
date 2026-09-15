@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {
   createContext,
   useCallback,
@@ -7,7 +8,6 @@ import React, {
   useState,
 } from 'react';
 import { useColorScheme } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type ThemeMode = 'auto' | 'light' | 'dark';
 export type ResolvedTheme = 'light' | 'dark';
@@ -89,7 +89,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 const STORAGE_KEY = '@theme_mode';
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
+  children
 }) => {
   const systemScheme = useColorScheme();
   const [mode, setModeState] = useState<ThemeMode>('auto');
@@ -109,7 +109,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const setMode = useCallback((m: ThemeMode) => {
     setModeState(m);
-    AsyncStorage.setItem(STORAGE_KEY, m).catch(() => {});
+    AsyncStorage.setItem(STORAGE_KEY, m).catch(() => { });
   }, []);
 
   const theme: ResolvedTheme =
@@ -139,4 +139,9 @@ export function useTheme(): ThemeContextValue {
 export function useThemedStyles<T>(factory: (c: ThemeColors) => T): T {
   const { colors } = useTheme();
   return useMemo(() => factory(colors), [colors, factory]);
+}
+
+export async function getTheme() {
+  const currentTheme = await AsyncStorage.getItem('@theme_mode');
+  return currentTheme;
 }
