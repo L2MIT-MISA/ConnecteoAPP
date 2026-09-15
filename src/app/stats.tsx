@@ -27,9 +27,7 @@ import {
   type ThemeColors,
 } from '../theme/ThemeContext';
 
-// ---------------------------------------------------------------------------
 // DONNÉES PAR DÉFAUT
-// ---------------------------------------------------------------------------
 
 const DEFAULT_SIGNAL_DATA = [
   { label: '4G', value: 0.0 },
@@ -52,10 +50,6 @@ const DEFAULT_ELECTRICITY_DATA = [
 ];
 
 const DEFAULT_AREAS = ['Tout', 'Province', 'Region', 'District', 'Commune', 'Fokontany'];
-
-// ---------------------------------------------------------------------------
-// COULEURS D'IDENTITÉ (fixes, ne dépendent pas du thème)
-// ---------------------------------------------------------------------------
 
 const SIGNAL_COLORS: Record<string, string> = {
   '4G': '#1a3d27',
@@ -89,9 +83,6 @@ const ELECTRICITY_LABELS_ORDER = [
   'Non renseigne / Autre',
 ];
 
-// ---------------------------------------------------------------------------
-// HELPERS
-// ---------------------------------------------------------------------------
 
 function withAllOperatorLabels(data: { label: string; value: number }[]) {
   const valueByLabel = Object.fromEntries(data.map((d) => [d.label, d.value]));
@@ -117,9 +108,6 @@ function colorFor(
   return colorMap[label] || colors.subtitle;
 }
 
-// ---------------------------------------------------------------------------
-// COMPOSANTS D'ANIMATION
-// ---------------------------------------------------------------------------
 
 function AnimatedVerticalBar({ value, color }: { value: number; color: string }) {
   const styles = useThemedStyles(createStyles);
