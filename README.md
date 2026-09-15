@@ -6,7 +6,7 @@ Application mobile et web construite avec Expo Router.
 
 ```bash
 sudo apt install openjdk-17-jdk
-sudo apt intall ninja-build
+sudo apt install ninja-build
 ```
 
 ## Add ANDROID_HOME to PATH
