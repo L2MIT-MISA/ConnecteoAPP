@@ -6,9 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomNavigation } from '../components/bottom-navigation';
 import Information from '../components/information';
 import MapSearchBar from '../components/mapSearchBar';
-import { useThemedStyles, type ThemeColors } from '../theme/ThemeContext';
+import { getTheme, useThemedStyles, type ThemeColors } from '../theme/ThemeContext';
 
-const STADIA_API_KEY = process.env.EXPO_PUBLIC_STADIA_API_KEY;
+const STADIA_API_KEY = process.env.EXPO_PUBLIC_STADIA_KEY;
+const LIGHT_MAP_STYLE = `https://tiles.stadiamaps.com/styles/alidade_smooth.json?api_key=${STADIA_API_KEY}`;
+const DARK_MAP_STYLE = `https://tiles.stadiamaps.com/styles/alidade_smooth_dark.json?api_key=${STADIA_API_KEY}`;
+
 
 export default function StatsScreen() {
   const styles = useThemedStyles(createStyles);
@@ -16,6 +19,8 @@ export default function StatsScreen() {
   const [placeToSearch, setPlaceToSearch] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [nodePressed, setNodePressed] = React.useState(false);
+  const [map, setMap] = React.useState("");
+  const [currentTheme, setCurrentTheme] = React.useState<any>(getTheme());
 
   const [currentUserLocation, setCurrentUserLocation] = React.useState<
     [lng: number, lat: number] | undefined
@@ -111,7 +116,7 @@ export default function StatsScreen() {
 
           <Map
             ref={mapRef}
-            mapStyle="https://tiles.openfreemap.org/styles/liberty"
+            mapStyle={currentTheme["_z"] === 'light' ? LIGHT_MAP_STYLE : DARK_MAP_STYLE}
             style={styles.map}
           >
             <Camera ref={cameraRef} />
