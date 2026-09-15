@@ -1,17 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-// ============================================================================
 // Connexion Supabase
-// ============================================================================
-const supabaseUrl = 'http://192.168.11.65:8000';
-const supabaseAnonKey =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg5MjA5NzE4LCJleHAiOjIxMDQ1Njk3MTh9.8TqQreyifHorvHUkk6qdWM_GixbdXcmnvjcSt4UBkeI';
+const supabaseUrl = 'http://100.103.0.49:8000';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg5MjA5NzE4LCJleHAiOjIxMDQ1Njk3MTh9.8TqQreyifHorvHUkk6qdWM_GixbdXcmnvjcSt4UBkeI';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// ============================================================================
 // Types partages avec le front
-// ============================================================================
 export type StatDatum = { label: string; value: number };
 
 export type ZoneStats = {
@@ -21,9 +16,7 @@ export type ZoneStats = {
   total: number;
 };
 
-// ============================================================================
 // Referentiels de zones (tables Supabase + valeurs de secours)
-// ============================================================================
 export const AREA_TABLE_MAP: Record<string, string> = {
   Province: 'referentiel_province',
   Region: 'referentiel_region',
@@ -62,10 +55,8 @@ export async function fetchPlaceNames(area: string): Promise<string[]> {
   return [...new Set(data.map((row) => row.nom))];
 }
 
-// ============================================================================
 // Resolution hierarchique zone -> liste de codecom
 // (Province -> Region -> District -> Commune)
-// ============================================================================
 async function districtsToCodecom(codedistList: string[]): Promise<string[]> {
   if (codedistList.length === 0) return [];
   const { data, error } = await supabase
@@ -197,12 +188,8 @@ export async function resolveCodecomList(area: string, placeNom: string): Promis
   ];
 }
 
-// ============================================================================
 // Calcul des statistiques a partir des lignes brutes de infrastructure_pylone
-// ============================================================================
-// ============================================================================
 // Calcul des statistiques (agregation faite cote Postgres via RPC)
-// ============================================================================
 const OPERATOR_LABELS: Record<string, string> = {
   TELMA: 'Telma',
   ORANGE: 'Orange',
