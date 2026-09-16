@@ -335,9 +335,8 @@ function ElectricityDonut({ data = DEFAULT_ELECTRICITY_DATA }) {
             {fullData.map((slice) => {
               const fullSegment = (slice.value / 100) * circumference;
               const animatedSegment = fullSegment * drawProgress;
-              const dashArray = `${animatedSegment} ${
-                circumference - animatedSegment
-              }`;
+              const dashArray = `${animatedSegment} ${circumference - animatedSegment
+                }`;
               const dashOffset = -((cumulative / 100) * circumference);
               cumulative += slice.value;
               const color = colorFor(slice.label, ELECTRICITY_COLORS, colors);
@@ -616,7 +615,7 @@ export function DropDown() {
           )}
         </View>
       </View>
-      
+
       {placesError && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorBannerText}>{placesError}</Text>

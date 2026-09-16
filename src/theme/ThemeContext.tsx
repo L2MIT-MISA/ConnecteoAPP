@@ -89,7 +89,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 const STORAGE_KEY = '@theme_mode';
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
-  children
+  children,
 }) => {
   const systemScheme = useColorScheme();
   const [mode, setModeState] = useState<ThemeMode>('auto');
@@ -139,9 +139,4 @@ export function useTheme(): ThemeContextValue {
 export function useThemedStyles<T>(factory: (c: ThemeColors) => T): T {
   const { colors } = useTheme();
   return useMemo(() => factory(colors), [colors, factory]);
-}
-
-export async function getTheme() {
-  const currentTheme = await AsyncStorage.getItem('@theme_mode');
-  return currentTheme;
 }
