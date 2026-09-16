@@ -16,60 +16,16 @@ import { useSession } from '../auth/session';
 import { useTheme, useThemedStyles, type ThemeColors } from '../theme/ThemeContext';
 
 export default function RegisterScreen() {
-  const { signUp } = useSession();
+  const styles = useThemedStyles(createStyles);
+  const { signIn } = useSession();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
-  const [erreur, setErreur] = useState<string | null>(null);
-  const [enCours, setEnCours] = useState(false);
 
-  async function handleCreateAccount() {
-    setErreur(null);
-    setEnCours(true);
-
-    if (!name.trim()) {
-      setErreur('Veuillez entrer votre nom complet');
-      setEnCours(false);
-      return;
-    }
-    if (!email.trim()) {
-      setErreur('Veuillez entrer votre e-mail');
-      setEnCours(false);
-      return;
-    }
-    if (!phone.trim()) {
-      setErreur('Veuillez entrer votre téléphone');
-      setEnCours(false);
-      return;
-    }
-    if (password.length < 6) {
-      setErreur('Le mot de passe doit contenir au moins 6 caractères');
-      setEnCours(false);
-      return;
-    }
-    if (password !== confirmation) {
-      setErreur('Les mots de passe ne correspondent pas');
-      setEnCours(false);
-      return;
-    }
-
-    try {
-      const { erreur: messageErreur } = await signUp(name, email, password, phone);
-
-      if (messageErreur) {
-        setErreur(messageErreur);
-        return;
-      }
-
-      router.replace('/message');
-    } catch (exception) {
-      const message = exception instanceof Error ? exception.message : 'Erreur inconnue';
-      setErreur(`Erreur réseau : ${message}`);
-    } finally {
-      setEnCours(false);
-    }
+  function handleCreateAccount() {
+    signIn();
+    router.replace('/message');
   }
 
   return (
@@ -111,14 +67,6 @@ export default function RegisterScreen() {
                   textContentType="emailAddress"
                 />
                 <FormField
-                  label="Téléphone"
-                  placeholder="+261 34 00 000 00"
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  textContentType="telephoneNumber"
-                />
-                <FormField
                   label="Mot de passe"
                   placeholder="••••••••"
                   value={password}
@@ -136,15 +84,8 @@ export default function RegisterScreen() {
                 />
               </View>
 
-              {erreur && <Text style={styles.errorText}>{erreur}</Text>}
-
-              <Pressable
-                style={[styles.submitButton, enCours && styles.submitButtonDisabled]}
-                onPress={handleCreateAccount}
-                disabled={enCours}>
-                <Text style={styles.submitText}>
-                  {enCours ? 'Création...' : 'Créer mon compte'}
-                </Text>
+              <Pressable style={styles.submitButton} onPress={handleCreateAccount}>
+                <Text style={styles.submitText}>Créer mon compte</Text>
               </Pressable>
 
               <Link href="/login" asChild>
@@ -165,9 +106,9 @@ type FormFieldProps = {
   placeholder: string;
   value: string;
   onChangeText: (value: string) => void;
-  keyboardType?: 'default' | 'email-address' | 'phone-pad';
+  keyboardType?: 'default' | 'email-address';
   secureTextEntry?: boolean;
-  textContentType?: 'emailAddress' | 'name' | 'newPassword' | 'telephoneNumber';
+  textContentType?: 'emailAddress' | 'name' | 'newPassword';
 };
 
 function FormField({ label, ...inputProps }: FormFieldProps) {
@@ -186,54 +127,59 @@ function FormField({ label, ...inputProps }: FormFieldProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, alignItems: 'center', backgroundColor: '#f4f1ea' },
-  safeArea: { width: '100%', maxWidth: 430, flex: 1 },
-  keyboardAvoidingView: { flex: 1 },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 50,
-    paddingVertical: 28,
-  },
-  form: { gap: 22 },
-  logo: {
-    width: 44,
-    height: 44,
-    alignSelf: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    backgroundColor: '#16452d',
-  },
-  logoMark: { color: '#ffffff', fontSize: 25, lineHeight: 27 },
-  heading: { alignItems: 'center', gap: 4, marginTop: -4 },
-  title: { color: '#102c1c', fontSize: 19, fontWeight: '700' },
-  subtitle: { color: '#737b8d', fontSize: 13 },
-  fields: { gap: 13 },
-  field: { gap: 6 },
-  label: { color: '#6f7788', fontSize: 12, textAlign: 'center' },
-  input: {
-    height: 42,
-    borderWidth: 1,
-    borderColor: '#dfe1e5',
-    borderRadius: 10,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 14,
-    color: '#18212d',
-    fontSize: 14,
-  },
-  submitButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 45,
-    borderRadius: 10,
-    backgroundColor: '#16452d',
-    marginTop: -1,
-  },
-  submitButtonDisabled: { opacity: 0.6 },
-  submitText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
-  errorText: { color: '#c0392b', fontSize: 12, textAlign: 'center', marginTop: 8 },
-  loginPrompt: { color: '#737b8d', fontSize: 12, textAlign: 'center', marginTop: -6 },
-  loginLink: { color: '#16452d', fontWeight: '700' },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    screen: { flex: 1, alignItems: 'center', backgroundColor: c.background },
+    safeArea: { width: '100%', maxWidth: 430, flex: 1 },
+    keyboardAvoidingView: { flex: 1 },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 50,
+      paddingVertical: 28,
+    },
+    form: { gap: 22 },
+    logo: {
+      width: 44,
+      height: 44,
+      alignSelf: 'center',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 14,
+      backgroundColor: c.primaryDark,
+    },
+    logoMark: { color: c.textLight, fontSize: 25, lineHeight: 27 },
+    heading: { alignItems: 'center', gap: 4, marginTop: -4 },
+    title: { color: c.textDark, fontSize: 19, fontWeight: '700' },
+    subtitle: { color: c.textMuted, fontSize: 13 },
+    fields: { gap: 13 },
+    field: { gap: 6 },
+    label: { color: c.textMuted, fontSize: 12, textAlign: 'center' },
+    input: {
+      height: 42,
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 10,
+      backgroundColor: c.inputBg,
+      paddingHorizontal: 14,
+      color: c.textDark,
+      fontSize: 14,
+    },
+    submitButton: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 45,
+      borderRadius: 10,
+      backgroundColor: c.primaryDark,
+      marginTop: -1,
+    },
+    submitText: { color: c.textLight, fontSize: 13, fontWeight: '700' },
+    loginPrompt: {
+      color: c.textMuted,
+      fontSize: 12,
+      textAlign: 'center',
+      marginTop: -6,
+    },
+    loginLink: { color: c.primary, fontWeight: '700' },
+  });
+}
