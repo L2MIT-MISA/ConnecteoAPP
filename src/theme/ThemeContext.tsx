@@ -31,6 +31,8 @@ export type ThemeColors = {
   success: string;
   warning: string;
   info: string;
+  placeholder: string;
+  inputBg: string
 };
 
 const LIGHT: ThemeColors = {
@@ -52,6 +54,8 @@ const LIGHT: ThemeColors = {
   success: '#2E7D32',
   warning: '#ED6C02',
   info: '#0288D1',
+  placeholder: '#A9C2B3',
+  inputBg: '#FFFFFF'
 };
 
 const DARK: ThemeColors = {
@@ -73,6 +77,8 @@ const DARK: ThemeColors = {
   success: '#66BB6A',
   warning: '#FFB74D',
   info: '#4FC3F7',
+  placeholder: '#7FA78C',
+  inputBg: '#FFFFFF'
 };
 
 export const THEME_COLORS = { light: LIGHT, dark: DARK };
@@ -89,7 +95,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 const STORAGE_KEY = '@theme_mode';
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
+  children
 }) => {
   const systemScheme = useColorScheme();
   const [mode, setModeState] = useState<ThemeMode>('auto');
@@ -139,4 +145,9 @@ export function useTheme(): ThemeContextValue {
 export function useThemedStyles<T>(factory: (c: ThemeColors) => T): T {
   const { colors } = useTheme();
   return useMemo(() => factory(colors), [colors, factory]);
+}
+
+export async function getTheme() {
+  const currentTheme = await AsyncStorage.getItem('@theme_mode');
+  return currentTheme;
 }
